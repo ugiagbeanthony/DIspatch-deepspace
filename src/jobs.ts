@@ -21,6 +21,7 @@ import { createDeepSpaceAI, createUserToolExecutor } from 'deepspace/worker'
 import { generateText } from 'ai'
 import { buildDigest, generateDrivers, generateHistory, generateRequests, truthFareCents } from './seed/generate'
 import { priceRequest } from './pricing/reconcile'
+import { historyFromQuery, requestFromGet } from './pricing/inputs'
 import type { Env } from '../worker'
 
 type JobEnv = Env
@@ -109,12 +110,6 @@ async function must<T>(
   return result.data as T
 }
 
-/** Records come back as `{recordId, data: {...}}`; tolerate a flat shape too. */
-function fieldsOf(rec: unknown): Record<string, unknown> {
-  const r = rec as { data?: Record<string, unknown> } & Record<string, unknown>
-  return (r && typeof r.data === 'object' && r.data) || r
-}
-
 /**
  * Price one request: learn a digest from fare history, ask the model for a
  * factor breakdown, let CODE sum and verify it (see pricing/reconcile.ts), and
@@ -132,27 +127,12 @@ async function priceOne(job: Job, ctx: JobContext, env: JobEnv): Promise<unknown
   const exec = createUserToolExecutor(env, actor, ctx.signal)
 
   ctx.progress(0.1, 'reading request and history')
-  const req = fieldsOf(await must(exec, 'records.get', { collection: 'requests', recordId: requestId })) as {
-    origin: string
-    destination: string
-    hour: number
-    weather: string
-    synthetic?: number
-  }
-  const hist = await must<{ records: unknown[] }>(exec, 'records.query', {
-    collection: 'fareHistory',
-    limit: 500,
-  })
-  const digest = buildDigest(
-    hist.records.map(fieldsOf) as Array<{
-      origin: string
-      destination: string
-      hour: number
-      weather: string
-      clearedCents: number
-    }>,
+  // Parsed and validated BEFORE any model call, so a bad read never costs credits.
+  const req = requestFromGet(await must(exec, 'records.get', { collection: 'requests', recordId: requestId }))
+  const history = historyFromQuery(
+    await must(exec, 'records.query', { collection: 'fareHistory', limit: 500 }),
   )
-  if (digest.sampleSize === 0) throw new Error('price: no fare history; seed demo data first')
+  const digest = buildDigest(history)
 
   ctx.progress(0.3, 'asking the model')
   const model = createDeepSpaceAI(env, 'anthropic')(PRICING_MODEL)
