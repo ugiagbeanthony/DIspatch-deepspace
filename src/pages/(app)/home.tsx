@@ -7,8 +7,9 @@
  */
 
 import { useState } from 'react'
-import { AuthOverlay, useAuthProfileReady, useQuery } from 'deepspace'
+import { AuthOverlay, useAuthProfileReady, useJobs, useQuery } from 'deepspace'
 import { Button } from '@/components/ui'
+import { SCOPE_ID } from '../../constants'
 
 const COLLECTIONS = [
   { name: 'requests', label: 'Requests' },
@@ -30,6 +31,50 @@ function Count({ collection, label }: { collection: string; label: string }) {
         <p className="mt-1 text-xs text-muted-foreground">{synthetic} synthetic</p>
       )}
     </div>
+  )
+}
+
+/**
+ * Dispatcher-only. Mounted only for an admin because the job queue is
+ * admin-only (a member's job socket is refused). Re-running is safe: seed
+ * rows have fixed ids and are upserted, never duplicated.
+ */
+function SeedPanel() {
+  const { jobs, connected, enqueue } = useJobs(SCOPE_ID)
+  const [error, setError] = useState<string | null>(null)
+  const latest = jobs.find((j) => j.type === 'seed')
+  const busy = latest?.status === 'queued' || latest?.status === 'running'
+
+  async function seed() {
+    setError(null)
+    try {
+      await enqueue('seed')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start the seed job')
+    }
+  }
+
+  return (
+    <section data-testid="seed-panel" className="mt-8 rounded-lg border border-border bg-card p-4">
+      <h2 className="text-sm font-semibold">Demo data</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Seeds 20 drivers, 6 requests and 14 days of fare history, all labelled synthetic. Safe to
+        run again: it overwrites the same rows instead of adding more.
+      </p>
+      <div className="mt-3 flex items-center gap-3">
+        <Button onClick={seed} disabled={!connected || busy}>
+          {busy ? 'Seeding…' : latest?.status === 'succeeded' ? 'Re-seed demo data' : 'Seed demo data'}
+        </Button>
+        {latest && (
+          <span data-testid="seed-status" className="text-sm text-muted-foreground">
+            {latest.status}
+            {busy && latest.progress !== undefined ? ` ${Math.round(latest.progress * 100)}%` : ''}
+            {latest.status === 'failed' && latest.error ? `: ${latest.error}` : ''}
+          </span>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+    </section>
   )
 }
 
@@ -70,9 +115,11 @@ export default function HomePage() {
         ))}
       </dl>
 
+      {isDispatcher && <SeedPanel />}
+
       <p className="mt-8 text-sm text-muted-foreground">
         Fleet, requests and fare history are seeded demo data and labelled synthetic.
-        Seeding arrives in the next step, so counts read zero for now.
+        {isDispatcher ? '' : ' Ask the dispatcher to seed it if the counts read zero.'}
       </p>
     </div>
   )

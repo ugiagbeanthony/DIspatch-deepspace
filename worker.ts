@@ -69,10 +69,12 @@ export class AppCronRoom extends CronRoom<Env> {
 export class AppJobRoom extends JobRoom<Env> {
   constructor(state: DurableObjectState, env: Env) {
     super(state, env, {
+      // Jobs run as a named user and can write records, so only the
+      // dispatcher (admin) may enqueue them. The default also admits
+      // `member`, which would let any signed-in reviewer start a job.
       authorizeWrite: async (user) => {
         if (user.userId.startsWith('anon-')) return false
-        const role = await resolveAppRole(env, user.userId)
-        return role === 'member' || role === 'admin'
+        return (await resolveAppRole(env, user.userId)) === 'admin'
       },
     })
   }
