@@ -190,5 +190,21 @@ prompt, the sign-in dialog opens (GitHub / Google / email), 0 console errors.
 **Not yet verified:** an actual signed-in session (needs a human login), and that
 a second account lands as read-only `member`.
 
-**Next: increment 2** - deterministic seed job (drivers must be real
-user records), then pricing (increment 3) is the product.
+**Increment 2 deployed and verified on the live app** (21 Nov 2026): the
+dispatcher's "Seed demo data" button ran the `seed` job; counts read requests 6,
+drivers 20, fares 0, fareHistory 140, all flagged synthetic, status succeeded.
+*Pending a human re-click:* confirm a second seed leaves the counts unchanged
+(upsert by fixed record id; unit-tested, not yet seen live).
+
+Security fix made here: the job queue was open to any `member`, and the spike
+`probe` job trusted a payload `asUserId`, so a reviewer could have run a job as
+the dispatcher. The queue is now admin-only, `probe` is removed, and jobs act as
+`job.enqueuedBy` (never a payload id).
+
+The digest (pair medians, hourly multipliers, rain multiplier) is computed in
+code from `fareHistory` by `buildDigest` in `src/seed/generate.ts`, not stored.
+Ground truth rain multiplier in the generator is 1.12.
+
+**Next: increment 3 (pricing) - the product.** Load-bearing: model returns
+factor rows, code sums them and asserts sum == total, reject and retry once, log
+rejections.
