@@ -66,27 +66,64 @@ or client material.
 - `deepspace/testing` ships a Playwright `users(2)` fixture for real
   two-session tests — the proper way to prove offer privacy end to end.
 
-## Blocked on the machine, not the code
+## Machine notes
 
-- `wrangler.toml` still has `DEEPSPACE_APP_ID = "__APP_ID__"`. Until
-  `npx deepspace app init` runs, **`deepspace dev`, `vitest`, and `deploy` all
-  refuse to start**. That requires a browser login, so it must happen on the
-  developer's own machine.
-- Commits in this repo are authored `Dispatch Dev <dev@localhost>` (this
-  workspace had no git identity). Fix locally with
-  `git commit --amend --reset-author` after setting a real identity.
-- **Set the GitHub remote before the first deploy.** AGENTS.md: the deploy
-  latches its git source from the checkout's remote at the app's first
-  release, permanently.
+- `app init` is done: `wrangler.toml` carries the real `DEEPSPACE_APP_ID`.
+  Commit that change.
+- Git identity is set; the earlier `Dispatch Dev` commits can be re-authored
+  with `git rebase -r --root --reset-author` if wanted (optional).
+- **`origin` is a local `.bundle` file, not GitHub.** The assignment needs a
+  repo URL, so create the GitHub repo and `git remote set-url origin <url>`
+  **before the first deploy** (AGENTS.md: the source latches permanently).
+- **Run vitest from a shell whose path starts with an uppercase `C:`**
+  (PowerShell `Set-Location C:\Users\...`). From Git Bash (`/c/...`) every
+  suite dies with "Vitest failed to find the current suite" - a drive-letter
+  case mismatch, not a code bug.
 
-## Open risk
+## What is simulated, and what is real
 
-The app owner is always `admin`, but any other account that signs in gets
-`member`. As designed, a `member` can read the console but cannot dispatch or
-override — so a reviewer signed into their own account sees a read-only
-console. Decide before building the UI: make `requests`/`fares`
-member-readable with dispatch admin-only, or hand the reviewer a seeded
-driver session for the privacy demo. Do not fake it with a role switcher.
+Synthetic data is load-bearing here, not decoration. Say so plainly in the
+writeup rather than dressing it up.
+
+**Simulated:** the population and its history. A deterministic seed job
+generates ~14 days of cleared fares plus the digest (median by
+origin-destination pair, hourly multipliers, zone supply/demand), and seeds ~20
+drivers and 6 requests. Deterministic so a reviewer can regenerate an identical
+demo.
+
+**Real:** every mechanism. RBAC enforced at the Durable Object, the job
+pipeline, the actual model call, the factor sum-and-assert, override capture,
+the variance computation.
+
+The drivers must be real user records, not invented ids: `read: 'own'` resolves
+to `record.data.driverId === userId`, so proving "driver B sees one offer,
+driver C sees none" needs actual signed-in identities. Driver *behaviour* is
+simulated - offers reach accepted/completed through seeded state, because
+nobody is accepting rides during a 90-second demo. Claim "seeded demo fleet,
+real enforcement"; never claim real riders.
+
+One actor is enough for the product (the dispatcher). Nothing in the assignment
+requires two people; two sessions only strengthen the offer-privacy proof, which
+the unit tests already cover. Increment 5's driver view is optional.
+
+## Reviewer access (decided)
+
+The app owner is `admin`; anyone else who signs in is `member`. Decision:
+`drivers`, `requests`, `fares` and `fareHistory` are **member-readable,
+admin-write-only** (`src/schemas/dispatch-schema.ts`), so a reviewer in their
+own account sees a populated console. `offers` stays private per driver - console
+visibility never extends to it. Covered by tests in `src/spike/rbac.test.ts`.
+No role switcher. The privacy demo uses seeded driver sessions / the Playwright
+`users(2)` fixture.
+
+## Honesty rules for the writeup
+
+- Seeded drivers, requests and the ~14-day history are **synthetic**. Every
+  generated row sets `synthetic = 1`; the UI must label them, and the writeup
+  must say so.
+- Only write a "verified by hand" finding that actually happened. The rain-fare
+  bias is a *hypothesis to look for*, not a result, until the variance chart
+  shows it.
 
 ## Exception to AGENTS.md
 
@@ -129,8 +166,9 @@ out: 7, then the map (list view instead), then chat.
   cut because the platform offers Checkout, not Connect payouts.
 - **Agent did:** scaffold, seed generator, scoring, factor pipeline, UI, chart.
 - **Verified by hand:** ranking picks a sensible driver; factors reconcile to
-  the total; driver B genuinely cannot see driver A's offer; and the model ran
-  ~9% high on rain fares, caught in the data.
+  the total; driver B genuinely cannot see driver A's offer; and
+  *(only if the variance chart actually shows it)* the model's bias on a
+  condition such as rain, with the measured percentage.
 
 ## Where things stand
 
@@ -138,7 +176,18 @@ Increment 0 complete at API level: scaffold, `offers` schema, 10/10 RBAC
 assertions passing against the real predicate, `probe` job handler
 typechecking, `tsc --noEmit` clean.
 
-**Next: increment 1** — live skeleton on `.app.space`, then the pricing job
-(increment 3) is the product. Load-bearing and never cut: pricing with the
-reconcile assertion, the RBAC proof, the override/variance chart, and the
-deploy. Cut in this order if time runs out: polish, map, chat.
+Since then: console schemas added (member-read / admin-write) with 5 more RBAC
+tests. Increment 1 code is done and verified locally: honest landing page
+(prerendered, loads logged out), `/home` console shell with sign-in prompt, role
+banner and live per-collection counts, real SEO text. `tsc`, eslint, 14/14
+tests and `vite build` all pass.
+
+**Increment 1 is not finished until it is live.** Remaining, in order:
+1. Create the GitHub repo and `git remote set-url origin <url>` (latches at
+   first release).
+2. `npx deepspace auth login` (browser), commit, `npx deepspace deploy`.
+3. Check the `.app.space` URL loads logged out and that sign-in works, then
+   that a second account lands as read-only `member`.
+
+**Next after that: increment 2** - deterministic seed job (drivers must be real
+user records), then pricing (increment 3) is the product.

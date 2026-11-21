@@ -62,3 +62,50 @@ describe('offers RBAC', () => {
     expect(canRead(offersSchema, 'member', orphan, '')).toBe(false)
   })
 })
+
+/**
+ * Reviewer access: a reviewer who signs in gets `member`. They must see a
+ * populated console, must not be able to change it, and must still never
+ * see anyone's offer.
+ */
+import {
+  driversSchema,
+  requestsSchema,
+  faresSchema,
+  fareHistorySchema,
+} from '../schemas/dispatch-schema'
+
+describe('reviewer (member) access', () => {
+  const rec = (createdBy = DISPATCHER) => ({ recordId: 'r1', createdBy, data: {} })
+  const consoleSchemas = [driversSchema, requestsSchema, faresSchema, fareHistorySchema]
+
+  it('can read every console collection', () => {
+    for (const s of consoleSchemas) {
+      expect(canRead(s, 'member', rec(), 'user_reviewer')).toBe(true)
+    }
+  })
+
+  it('cannot create, change or delete console data', () => {
+    for (const s of consoleSchemas) {
+      expect(canCreate(s, 'member')).toBe(false)
+      expect(canUpdate(s, 'member', rec(), 'user_reviewer')).toBe(false)
+    }
+  })
+
+  it('sees nothing when signed out', () => {
+    for (const s of consoleSchemas) {
+      expect(canRead(s, '*', rec(), 'anon')).toBe(false)
+    }
+  })
+
+  it('still cannot see a driver’s offer', () => {
+    expect(canRead(offersSchema, 'member', offerForDriverA, 'user_reviewer')).toBe(false)
+  })
+
+  it('lets the dispatcher write all console data', () => {
+    for (const s of consoleSchemas) {
+      expect(canCreate(s, 'admin')).toBe(true)
+      expect(canUpdate(s, 'admin', rec(), DISPATCHER)).toBe(true)
+    }
+  })
+})

@@ -31,18 +31,23 @@ export default function Landing() {
       >
         <p className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">{APP_NAME}</p>
         <h1 className="mb-4 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          A DeepSpace app with a static front door
+          Dispatch a small fleet, and see why every fare is what it is
         </h1>
-        <p className="mb-8 max-w-md text-muted-foreground">
-          This landing page ships no auth call and no realtime connection — it's a
-          plain static page. The live app, with sign-in and synced data, lives
-          behind the link below.
+        <p className="mb-4 max-w-xl text-muted-foreground">
+          A dispatcher console: ranked driver matches with reasons, AI fares broken
+          into factors that must add up to the total, and a record of every manual
+          override against what the model suggested.
+        </p>
+        <p className="mb-8 max-w-xl text-sm text-muted-foreground">
+          Demo data: the fleet, requests and fare history are seeded and labelled
+          synthetic. The permissions, job pipeline, model calls and fare checks are
+          real.
         </p>
         <Link
           to="/home"
           className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
-          Enter the app
+          Open the console
         </Link>
       </div>
     </>
