@@ -1,0 +1,35 @@
+- generic [ref=e4]:
+  - navigation [ref=e5]:
+    - generic [ref=e6]:
+      - link "dispatch" [ref=e7] [cursor=pointer]:
+        - /url: /home
+      - generic [ref=e8]:
+        - link "Console" [ref=e9] [cursor=pointer]:
+          - /url: /home
+        - link "Settings" [ref=e10] [cursor=pointer]:
+          - /url: /settings
+      - button "Sign in" [ref=e11]
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - heading "Dispatch console" [level=1] [ref=e15]
+        - paragraph [ref=e16]: Sign in to view the fleet, requests and fares.
+        - button "Sign in" [active] [ref=e17] [cursor=pointer]
+      - generic [ref=e19]:
+        - button "Close" [ref=e20]: ✕
+        - heading "Sign in to DeepSpace" [level=2] [ref=e21]
+        - paragraph [ref=e22]: Sync your data across devices
+        - generic [ref=e23]:
+          - button "Continue with GitHub" [ref=e24]
+          - button "Continue with Google" [ref=e27]
+        - generic [ref=e33]: or
+        - button "Sign in with email" [ref=e36]
+        - paragraph [ref=e40]:
+          - text: By continuing, you agree to the DeepSpace
+          - link "Terms of Service" [ref=e41] [cursor=pointer]:
+            - /url: https://deep.space/terms
+          - text: and
+          - link "Privacy Policy" [ref=e42] [cursor=pointer]:
+            - /url: https://deep.space/privacy
+          - text: .
+        - generic [ref=e43]: Powered by DeepSpace

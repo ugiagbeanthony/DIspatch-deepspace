@@ -182,12 +182,13 @@ tests. Increment 1 code is done and verified locally: honest landing page
 banner and live per-collection counts, real SEO text. `tsc`, eslint, 14/14
 tests and `vite build` all pass.
 
-**Increment 1 is not finished until it is live.** Remaining, in order:
-1. Create the GitHub repo and `git remote set-url origin <url>` (latches at
-   first release).
-2. `npx deepspace auth login` (browser), commit, `npx deepspace deploy`.
-3. Check the `.app.space` URL loads logged out and that sign-in works, then
-   that a second account lands as read-only `member`.
+**Deployed: https://dispatch.app.space** (21 Nov 2026). Source latched to GitHub
+`ugiagbeanthony/dispatch-deepspace`, permanently - so DeepSpace `push/pull/workspace`
+verbs refuse; ship with plain git + `npx deepspace deploy`.
+Verified in a real browser, logged out: landing 200, `/home` shows the sign-in
+prompt, the sign-in dialog opens (GitHub / Google / email), 0 console errors.
+**Not yet verified:** an actual signed-in session (needs a human login), and that
+a second account lands as read-only `member`.
 
-**Next after that: increment 2** - deterministic seed job (drivers must be real
+**Next: increment 2** - deterministic seed job (drivers must be real
 user records), then pricing (increment 3) is the product.
