@@ -67,6 +67,12 @@ export const faresSchema: CollectionSchema = {
     { name: 'overridden', storage: 'number', interpretation: 'plain' },
     { name: 'overrideReason', storage: 'text', interpretation: 'plain', maxLength: 240 },
     { name: 'rejections', storage: 'number', interpretation: 'plain' },
+    { name: 'rejectionNotes', storage: 'text', interpretation: 'plain', maxLength: 600 },
+    /** 'model' when the model's factors passed every check, else 'fallback'. */
+    { name: 'source', storage: 'text', interpretation: 'plain', maxLength: 16 },
+    /** Noise-free fare from the generator's hidden rules. Exists only because
+     *  the demo world is synthetic; it lets us measure model bias honestly. */
+    { name: 'referenceCents', storage: 'number', interpretation: 'plain' },
     { name: 'synthetic', storage: 'number', interpretation: 'plain' },
   ],
   permissions: readAll,

@@ -8,7 +8,9 @@
 
 import { useState } from 'react'
 import { AuthOverlay, useAuthProfileReady, useJobs, useQuery } from 'deepspace'
+import type { JobView } from 'deepspace'
 import { Button } from '@/components/ui'
+import { RequestsPanel } from '@/components/RequestsPanel'
 import { SCOPE_ID } from '../../constants'
 
 const COLLECTIONS = [
@@ -39,8 +41,15 @@ function Count({ collection, label }: { collection: string; label: string }) {
  * admin-only (a member's job socket is refused). Re-running is safe: seed
  * rows have fixed ids and are upserted, never duplicated.
  */
-function SeedPanel() {
-  const { jobs, connected, enqueue } = useJobs(SCOPE_ID)
+function SeedPanel({
+  jobs,
+  connected,
+  enqueue,
+}: {
+  jobs: JobView[]
+  connected: boolean
+  enqueue: (type: string, payload?: unknown) => Promise<string>
+}) {
   const [error, setError] = useState<string | null>(null)
   const latest = jobs.find((j) => j.type === 'seed')
   const busy = latest?.status === 'queued' || latest?.status === 'running'
@@ -75,6 +84,17 @@ function SeedPanel() {
       </div>
       {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
     </section>
+  )
+}
+
+/** One job connection shared by everything the dispatcher can trigger. */
+function DispatcherTools() {
+  const { jobs, connected, enqueue } = useJobs(SCOPE_ID)
+  return (
+    <>
+      <SeedPanel jobs={jobs} connected={connected} enqueue={enqueue} />
+      <RequestsPanel jobs={jobs} enqueue={connected ? enqueue : undefined} />
+    </>
   )
 }
 
@@ -115,7 +135,7 @@ export default function HomePage() {
         ))}
       </dl>
 
-      {isDispatcher && <SeedPanel />}
+      {isDispatcher ? <DispatcherTools /> : <RequestsPanel />}
 
       <p className="mt-8 text-sm text-muted-foreground">
         Fleet, requests and fare history are seeded demo data and labelled synthetic.
