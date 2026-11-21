@@ -10,6 +10,19 @@ build exercise. **Deadline: Saturday 21 November 2026, 11:59 PM ET.**
 Live URL target: `<name>.app.space`. A repo URL and a short writeup are also
 required.
 
+## The assignment
+
+Submission needs three things: a live URL at `<name>.app.space`, a repository
+URL, and a short writeup covering **what was built, which DeepSpace
+integrations were used, the main tradeoff, what the agent did, and what was
+verified by hand**.
+
+Rules that shape the build: at least **three** DeepSpace integrations doing real
+work; a basic CRUD app is explicitly not enough; the scope must be finishable,
+and a focused finished project beats a large incomplete one; anything left out
+must be **explained**, not silently skipped. No confidential employer, school
+or client material.
+
 ## Non-negotiable design decisions
 
 1. **Dispatcher console, not a consumer marketplace.** One actor, one tab,
@@ -74,6 +87,50 @@ override — so a reviewer signed into their own account sees a read-only
 console. Decide before building the UI: make `requests`/`fares`
 member-readable with dispatch admin-only, or hand the reviewer a seeded
 driver session for the privacy demo. Do not fake it with a role switcher.
+
+## Exception to AGENTS.md
+
+AGENTS.md says not to set up GitHub unless the developer explicitly asks. The
+assignment **requires a repository URL**, so GitHub is the intended source here
+and the scaffold default does not apply. Set the remote *before* the first
+deploy — the source is latched from the checkout's remote at the first release,
+permanently.
+
+## The build plan
+
+Ten increments, each ending in something visibly working. Do not start the next
+until the check passes.
+
+| # | Increment | Time | Check |
+|---|---|---|---|
+| 0 | Two-account spike | 30m | ✅ done — RBAC proven, 10/10 |
+| 1 | Live skeleton on `.app.space` | 40m | URL loads logged out, sign-in works |
+| 2 | Data model + seed | 40m | 6 requests, 20 drivers, no duplicate rows |
+| 3 | 🔒 Pricing job end-to-end | 85m | factors hand-add to the total; corrupted response rejected |
+| 4 | Matching job | 40m | nearest free driver ranks first; re-rank on move |
+| 5 | 🔒 Dispatch + driver view + RBAC | 55m | driver B sees one offer, driver C sees none |
+| 6 | 🔒 Override + variance chart | 40m | readable delta traceable to rows |
+| 7 | ✂️ Polish + demo script | 25m | 90-second walkthrough runs twice clean |
+| 8 | Writeup + README + capture | 40m | submission text complete |
+| 9 | 🔒 Ship | 25m | deployed URL verified logged in **and** out |
+
+**Never cut:** 3, 5, 6, 9 — the reconcile assertion, the RBAC proof, the
+variance chart and the deploy are the submission. **Cut order** if time runs
+out: 7, then the map (list view instead), then chat.
+
+## Writeup skeleton
+
+- **Built:** a dispatch console for a small independent fleet — matching with
+  reasons, explainable AI pricing, override capture, variance reporting.
+- **Integrations:** records with per-collection RBAC, durable background jobs,
+  cron, AI via the DeepSpace proxy.
+- **Main tradeoff:** dispatcher console instead of a consumer marketplace — one
+  actor, legible in one tab, at the cost of live two-sided matching. Payments
+  cut because the platform offers Checkout, not Connect payouts.
+- **Agent did:** scaffold, seed generator, scoring, factor pipeline, UI, chart.
+- **Verified by hand:** ranking picks a sensible driver; factors reconcile to
+  the total; driver B genuinely cannot see driver A's offer; and the model ran
+  ~9% high on rain fares, caught in the data.
 
 ## Where things stand
 
