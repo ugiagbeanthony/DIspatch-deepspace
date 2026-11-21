@@ -1,5 +1,9 @@
 # AGENTS.md
 
+**Project state and decisions: read `PROJECT-STATE.md` before changing
+anything.** It records the design constraints this app must keep, what is
+verified against the SDK, and what is still blocked.
+
 Read <https://docs.deep.space/llms.txt>, then fetch the relevant documentation
 page as Markdown by appending `.md`. The installed package types and CLI
 `--help` describe the exact version in this project. Use your existing HTTP,
