@@ -3,6 +3,7 @@ import type { Env } from '../../worker'
 import { price } from './price'
 import { negotiate } from './negotiate'
 import { demoRequests } from './demo-requests'
+import { incomingRequest } from './incoming'
 import { tripMove, tripRequest } from './trips'
 import { demoJobs, respondOffer, sendOffer, simulateReply } from './offers'
 
@@ -14,6 +15,7 @@ export const actions: Record<string, ActionHandler<Env>> = {
   price,
   negotiate,
   'demo-requests': demoRequests,
+  'incoming-request': incomingRequest,
   'trip-request': tripRequest,
   'trip-move': tripMove,
   'send-offer': sendOffer,

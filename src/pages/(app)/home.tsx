@@ -12,7 +12,6 @@ import { AuthOverlay, useAuthProfileReady, useJobs, useQuery } from 'deepspace'
 import type { JobView } from 'deepspace'
 import { Button } from '@/components/ui'
 import { useMine } from '@/lib/use-mine'
-import { AddRequestForm } from '@/components/AddRequestForm'
 import { RequestsPanel } from '@/components/RequestsPanel'
 import { VariancePanel } from '@/components/VariancePanel'
 import { SCOPE_ID } from '../../constants'
@@ -141,7 +140,6 @@ export default function HomePage() {
         ))}
       </dl>
 
-      <AddRequestForm />
       <RequestsPanel />
       <VariancePanel />
       {isOwner && <OwnerTools />}

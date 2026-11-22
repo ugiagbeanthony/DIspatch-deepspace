@@ -112,8 +112,8 @@ describe('private workspace: requests, fares and negotiations belong to the disp
     for (const s of personal) expect(canRead(s, 'member', mine, OTHER_DISPATCHER)).toBe(false)
   })
 
-  it('a dispatcher can add requests and update only their own', () => {
-    expect(canCreate(requestsSchema, 'member')).toBe(true)
+  it('a dispatcher cannot log a request by hand, and can update (hide) only their own', () => {
+    expect(canCreate(requestsSchema, 'member')).toBe(false)
     expect(canUpdate(requestsSchema, 'member', mine, DISPATCHER)).toBe(true)
     expect(canUpdate(requestsSchema, 'member', mine, OTHER_DISPATCHER)).toBe(false)
   })

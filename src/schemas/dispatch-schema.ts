@@ -49,6 +49,8 @@ export const driversSchema: CollectionSchema = {
 export const requestsSchema: CollectionSchema = {
   name: 'requests',
   columns: [
+    /** The (simulated) customer who is asking. */
+    { name: 'customerName', storage: 'text', interpretation: 'plain', maxLength: 60 },
     { name: 'origin', storage: 'text', interpretation: 'plain', maxLength: 80 },
     { name: 'destination', storage: 'text', interpretation: 'plain', maxLength: 80 },
     { name: 'originLat', storage: 'number', interpretation: 'plain' },
@@ -65,8 +67,10 @@ export const requestsSchema: CollectionSchema = {
   permissions: {
     '*': none,
     viewer: none,
-    // A dispatcher sees and updates only the requests THEY created.
-    member: { read: 'own', create: true, update: 'own', delete: false },
+    // A dispatcher sees and updates (hides) only their own requests. They do not
+    // log requests by hand any more: requests arrive from customers, created by
+    // the server (demo-requests, incoming-request).
+    member: { read: 'own', create: false, update: 'own', delete: false },
     admin: { read: true, create: true, update: true, delete: true },
   },
 }

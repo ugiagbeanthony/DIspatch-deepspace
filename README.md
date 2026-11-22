@@ -5,13 +5,13 @@ A dispatch console for a small independent taxi fleet, built on [DeepSpace](http
 - **Live:** https://dispatch.app.space (the app is named Curbline; the web address keeps its original id)
 - **Writeup:** [WRITEUP.md](./WRITEUP.md)
 
-A dispatcher takes a request, gets an AI fare suggestion whose factor rows must add up, negotiates the price with a simulated customer, then sends the job to the closest free driver. There are three screens: the **dispatcher console**, a **driver screen** (jobs sent to you) and a **customer screen** (ask for a ride and haggle with a simulated dispatcher). The fleet, the customer and, on the customer screen, the dispatcher are **simulated and labelled as such**; the permissions, pricing checks, job rules and negotiation limits are real and run on the server.
+A request arrives from a customer, the dispatcher gets an AI fare suggestion whose factor rows must add up, negotiates the price with a simulated customer, then sends the job to the closest free driver. There are three screens: the **dispatcher console**, a **driver screen** (jobs sent to you) and a **customer screen** (ask for a ride and haggle with a simulated dispatcher). The fleet, the customer and, on the customer screen, the dispatcher are **simulated and labelled as such**; the permissions, pricing checks, job rules and negotiation limits are real and run on the server.
 
 ## Try it (about 90 seconds)
 
 Sign in with any account. You land as a **dispatcher** with a **private workspace**: your requests, prices and negotiations are visible only to you. The shared fleet and fare history are already seeded.
 
-0. **Your demo requests:** a new account gets its own copy of six demo requests automatically on first visit (or add your own with the form). They are yours alone.
+0. **Incoming requests:** a dispatcher does not log requests; they arrive from customers. A new account receives six requests from simulated customers automatically on first visit, and **Receive a new request** brings in another. They are yours alone.
 
 1. **Console:** your requests, plus the shared fleet and fare history.
 2. **Price:** the console lists your three most recent requests (**See all** opens the rest; **Hide** tidies a finished one away without deleting it). Click **Price** on one. It uses the AI model and is billed to *your* DeepSpace credits (roughly a tenth of a cent). Open the **Details** dropdown to see the factor rows and "Rows add up to the total ✓".
@@ -28,7 +28,7 @@ If the shared counts (drivers, fare history) read zero, the owner must click **S
 | Role | Who | Can do |
 |---|---|---|
 | `admin` | the app owner | everything a dispatcher can, plus seed demo data |
-| `member` | **dispatcher**, the default for anyone who signs in | add requests, price, negotiate, send jobs, all on **their own** requests only |
+| `member` | **dispatcher**, the default for anyone who signs in | receive requests, price, negotiate, send jobs, hide finished ones, all on **their own** requests only |
 | `viewer` | **driver** | see only jobs sent to them, and accept or reject; no access to requests, fleet or fares |
 | any signed-in account | **customer** | ask for rides and negotiate on the customer screen; sees only their own trips |
 
@@ -70,4 +70,4 @@ The signed-in dispatcher. The pricing action forwards the caller's own token to 
 
 ## Known limits
 
-Demo data is synthetic, so the AI's prices are only as meaningful as 14 days of generated history. Jobs sent to drivers are owned by the driver (that is what keeps them private to a driver), so a dispatcher's list of jobs they sent is filtered on screen to their own rather than enforced by the database. A customer's requests do not reach a real dispatcher's console: the customer screen talks to a simulated dispatcher, and real routing from customer to dispatcher is future work. Payments, scheduled jobs, email and push notifications, and recurring contracts are not built; see [WRITEUP.md](./WRITEUP.md) for why.
+Demo data is synthetic, so the AI's prices are only as meaningful as 14 days of generated history. Jobs sent to drivers are owned by the driver (that is what keeps them private to a driver), so a dispatcher's list of jobs they sent is filtered on screen to their own rather than enforced by the database. A customer's requests do not reach a real dispatcher's console: the console's incoming requests come from simulated customers and the customer screen talks to a simulated dispatcher. Connecting a real customer to a real dispatcher is future work. Payments, scheduled jobs, email and push notifications, and recurring contracts are not built; see [WRITEUP.md](./WRITEUP.md) for why.

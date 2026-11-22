@@ -131,6 +131,8 @@ export function generateDrivers(seed = SEED): DriverSeed[] {
 export interface RequestSeed {
   recordId: string
   data: {
+    /** The simulated customer who is asking. */
+    customerName: string
     origin: string
     destination: string
     originLat: number
@@ -148,22 +150,23 @@ export interface RequestSeed {
  * Fixed on purpose: six hand-picked requests, two of them in the rain, so the
  * demo always has a rain case to price. Not random.
  */
-const REQUEST_PLAN: ReadonlyArray<readonly [string, string, number, 'clear' | 'rain', number]> = [
-  // origin, destination, hour, weather, share of the fair fare the customer offers
-  ['Downtown', 'Airport', 8, 'clear', 0.82],
-  ['University', 'Midtown', 18, 'rain', 0.9],
-  ['Harbor', 'Downtown', 13, 'clear', 0.78],
-  ['Midtown', 'Airport', 23, 'clear', 0.85],
-  ['Airport', 'University', 9, 'rain', 0.88],
-  ['Downtown', 'Harbor', 15, 'clear', 0.8],
+const REQUEST_PLAN: ReadonlyArray<readonly [string, string, number, 'clear' | 'rain', number, string]> = [
+  // origin, destination, hour, weather, share of the fair fare the customer offers, who is asking
+  ['Downtown', 'Airport', 8, 'clear', 0.82, 'Maya'],
+  ['University', 'Midtown', 18, 'rain', 0.9, 'Daniel'],
+  ['Harbor', 'Downtown', 13, 'clear', 0.78, 'Priya'],
+  ['Midtown', 'Airport', 23, 'clear', 0.85, 'Tomas'],
+  ['Airport', 'University', 9, 'rain', 0.88, 'Aisha'],
+  ['Downtown', 'Harbor', 15, 'clear', 0.8, 'Leo'],
 ]
 
 export function generateRequests(): RequestSeed[] {
-  return REQUEST_PLAN.map(([origin, destination, hour, weather, share], i) => {
+  return REQUEST_PLAN.map(([origin, destination, hour, weather, share, customerName], i) => {
     const z = zoneByName(origin)
     return {
       recordId: `seed-req-${i + 1}`,
       data: {
+        customerName,
         origin,
         destination,
         originLat: z.lat,
@@ -237,6 +240,55 @@ export function generateHistory(
     }
   }
   return rows
+}
+
+// -- a feed of new incoming requests ------------------------------------------
+const CUSTOMER_NAMES = [
+  'Maya', 'Daniel', 'Priya', 'Tomas', 'Aisha', 'Leo',
+  'Chloe', 'Sam', 'Nadia', 'Owen', 'Yara', 'Felix',
+] as const
+
+/** Stable 32-bit seed from a string (FNV-1a). */
+function seedOf(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h
+}
+
+/**
+ * The n-th new request to reach one dispatcher: a simulated customer with a
+ * route, an hour, the weather and a price a little under the fair fare. Same
+ * user and n, same request.
+ */
+export function incomingRequestFor(userId: string, n: number): RequestSeed {
+  const rnd = mulberry32(seedOf(`${userId}|incoming|${n}`))
+  const o = Math.floor(rnd() * ZONES.length)
+  let d = Math.floor(rnd() * (ZONES.length - 1))
+  if (d >= o) d++
+  const hour = HOUR_POOL[Math.floor(rnd() * HOUR_POOL.length)]
+  const weather = rnd() < 0.3 ? 'rain' : 'clear'
+  const share = 0.75 + rnd() * 0.17
+  const customerName = CUSTOMER_NAMES[Math.floor(rnd() * CUSTOMER_NAMES.length)]
+  const origin = ZONES[o]
+  const destination = ZONES[d]
+  return {
+    recordId: `req-${userId}-in-${n}`,
+    data: {
+      customerName,
+      origin: origin.name,
+      destination: destination.name,
+      originLat: origin.lat,
+      originLng: origin.lng,
+      hour,
+      proposedCents: Math.round((truthFareCents(origin.name, destination.name, hour, weather) * share) / 5) * 5,
+      weather,
+      status: 'open',
+      synthetic: 1,
+    },
+  }
 }
 
 // -- digest: what the pricing job learns from history --------------------------

@@ -26,6 +26,7 @@ interface RequestData {
   destination: string
   originLat: number
   originLng: number
+  customerName?: string
   hour: number
   proposedCents?: number
   weather: string
@@ -242,6 +243,11 @@ export function RequestList({ limit }: { limit?: number }) {
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">
                     {r.data.origin} <span className="text-muted-foreground">to</span> {r.data.destination}
+                    {r.data.customerName && (
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        from {r.data.customerName} (simulated)
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {String(r.data.hour).padStart(2, '0')}:00 · {r.data.weather} ·{' '}
@@ -538,11 +544,32 @@ export function RequestList({ limit }: { limit?: number }) {
   )
 }
 
-/** The console section: the latest few requests, each with a Details dropdown. */
+/** The console section: the latest few incoming requests, each with a Details dropdown. */
 export function RequestsPanel() {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function receive() {
+    setBusy(true)
+    setError(null)
+    const r = await callAction('incoming-request', {})
+    setBusy(false)
+    if (!r.ok) setError(r.error)
+  }
+
   return (
     <section data-testid="requests-panel" className="mt-8">
-      <h2 className="text-lg font-semibold">Requests</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Incoming requests</h2>
+        <Button variant="secondary" data-testid="receive-request" disabled={busy} onClick={receive}>
+          {busy ? 'Receiving…' : 'Receive a new request'}
+        </Button>
+      </div>
+      {error && (
+        <p data-testid="receive-error" className="mt-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
       <RequestList limit={PREVIEW_COUNT} />
     </section>
   )

@@ -8,6 +8,7 @@ import {
   generateHistory,
   demoRequestsFor,
   generateRequests,
+  incomingRequestFor,
   truthFareCents,
 } from './generate'
 
@@ -85,5 +86,35 @@ describe('seed generator', () => {
     expect(a.map((r) => r.data)).toEqual(b.map((r) => r.data))
     // Same user, same ids: asking twice does not duplicate.
     expect(demoRequestsFor('user_a').map((r) => r.recordId)).toEqual(a.map((r) => r.recordId))
+  })
+
+  it('names the customer on every demo request', () => {
+    for (const r of generateRequests()) expect(r.data.customerName.length).toBeGreaterThan(0)
+  })
+})
+
+describe('incoming requests feed', () => {
+  it('is deterministic for the same user and number, and differs between numbers', () => {
+    expect(incomingRequestFor('u', 6)).toEqual(incomingRequestFor('u', 6))
+    expect(incomingRequestFor('u', 6).data).not.toEqual(incomingRequestFor('u', 7).data)
+    expect(incomingRequestFor('u', 6).recordId).not.toBe(incomingRequestFor('v', 6).recordId)
+  })
+
+  it('always produces a valid request: two different zones, a sane hour, a price under the fair fare', () => {
+    const names = new Set(ZONES.map((z) => z.name))
+    for (let n = 0; n < 200; n++) {
+      const r = incomingRequestFor('user_x', n)
+      expect(names.has(r.data.origin)).toBe(true)
+      expect(names.has(r.data.destination)).toBe(true)
+      expect(r.data.origin).not.toBe(r.data.destination)
+      expect(r.data.hour).toBeGreaterThanOrEqual(0)
+      expect(r.data.hour).toBeLessThanOrEqual(23)
+      const fair = truthFareCents(r.data.origin, r.data.destination, r.data.hour, r.data.weather)
+      expect(r.data.proposedCents).toBeGreaterThan(fair * 0.7)
+      expect(r.data.proposedCents).toBeLessThan(fair)
+      expect(r.data.proposedCents).toBeLessThanOrEqual(50_000)
+      expect(r.data.customerName.length).toBeGreaterThan(0)
+      expect(r.data.synthetic).toBe(1)
+    }
   })
 })

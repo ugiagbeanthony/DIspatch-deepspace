@@ -171,6 +171,11 @@ Later that evening: app renamed Curbline (display only; address and app id stay
 play); customer screen (`/customer`, `trips` collection, `trip-request` and
 `trip-move` actions, simulated dispatcher with a hidden floor); explanatory
 paragraphs removed from the UI (they live in the README). 138 tests.
-Not tried by hand yet: customer screen, Hide.
+Dispatchers no longer log requests: the manual form is gone, `requests` is not
+client-creatable, and requests arrive via `demo-requests` (six on first visit)
+and `incoming-request` ("Receive a new request", capped at 30). Lists on the
+console, customer and driver screens show the latest three and expand
+(`src/lib/recent.ts`). 146 tests.
+Not tried by hand yet: customer screen, Hide, incoming requests.
 
 Windows note: run vitest from a shell whose path starts with an uppercase `C:`.

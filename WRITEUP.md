@@ -4,7 +4,7 @@
 
 ## What I built
 
-A dispatch console for a small independent taxi fleet. A dispatcher takes a phoned-in request (route, hour, weather, and the price the customer offers) and works it end to end:
+A dispatch console for a small independent taxi fleet. Requests arrive at the dispatcher from customers (route, hour, weather, and the price the customer offers); the dispatcher does not log them by hand. They work each one end to end:
 
 1. **Price it.** An AI model suggests a fare as a list of factor rows (route base, time of day, rain). The app adds the rows itself; that sum is the fare. The model never produces the total.
 2. **Negotiate.** The customer's offer, the AI's suggestion and the dispatcher's quote are three different prices. A simulated customer accepts, counters or cancels; the dispatcher can accept a counter, counter back, or reject the job.
@@ -49,7 +49,7 @@ Covered by **138 automated tests, not re-checked by hand** (this includes the cu
 
 ## What I left out, and why
 
-- **Real routing from customer to dispatcher:** the customer screen talks to a simulated dispatcher, so a customer's request never reaches a real dispatcher's console. Connecting them needs two real people at once; it is the natural next step.
+- **Real routing from customer to dispatcher:** the console's incoming requests come from simulated customers, and the customer screen talks to a simulated dispatcher, so a real customer's request never reaches a real dispatcher's console. Connecting them needs two real people at once; it is the natural next step.
 - **Payments:** no payout support on the platform (see above).
 - **Recurring contracts and cancellation fees:** a good idea (a regular customer with the same trip every day), but not built in the time available.
 - **Scheduled jobs (cron), email and push notifications, a map, chat:** cut for time. Notifications are in-app only.
