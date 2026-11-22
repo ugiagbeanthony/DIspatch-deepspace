@@ -1,60 +1,64 @@
-# Curbline: writeup
+# Curbline
 
-**Live:** https://dispatch.app.space · **Repo:** https://github.com/ugiagbeanthony/DIspatch-deepspace
+Live: https://dispatch.app.space
+Repo: https://github.com/ugiagbeanthony/DIspatch-deepspace
+
+Curbline is a dispatch app for a small taxi fleet. A request comes in from a customer, an AI model suggests a fare, the dispatcher haggles the price with the customer, and the job goes to the closest free driver.
 
 ## What I built
 
-A dispatch console for a small independent taxi fleet. Requests arrive at the dispatcher from customers (route, hour, weather, and the price the customer offers); the dispatcher does not log them by hand. They work each one end to end:
+There are three screens.
 
-1. **Price it.** An AI model suggests a fare as a list of factor rows (route base, time of day, rain). The app adds the rows itself; that sum is the fare. The model never produces the total.
-2. **Negotiate.** The customer's offer, the AI's suggestion and the dispatcher's quote are three different prices. A simulated customer accepts, counters or cancels; the dispatcher can accept a counter, counter back, or reject the job.
-3. **Match and send.** Free drivers are ranked by distance and rating, each with a reason. A job goes out only at an agreed price.
-4. **Driver side.** A driver sees only jobs addressed to them (price, distance, time to pickup, accept or reject), one at a time, on a compressed demo clock.
-5. **Compare.** Agreement charts show customer-offered vs AI vs agreed price; the console previews the latest three and a separate page lists them all. Finished requests can be hidden to keep the list short (a flag, so history is kept).
-6. **Customer side.** A customer screen lets a person ask for a ride and offer a price. A simulated dispatcher quotes from the fare history and can be countered, but never goes below its own hidden lowest price; once agreed, the closest free driver is matched.
+**The dispatcher console** is a queue. The request that has waited longest sits on top, and a note tells you when more are waiting. For each request the AI suggests a fare as a few rows (route base, time of day, rain), and the app adds the rows up itself. That sum is the fare, so the model never gives the total. If the model's own total disagrees with its rows, I throw the answer out and ask once more. If it fails again, the price comes from past fares instead and is labelled as a fallback.
 
-The console works as a queue, with the request that has waited longest on top and a note when more are unattended. Both sides get in-app notifications.
+The dispatcher then negotiates. The customer's offer, the AI's price and the dispatcher's quote are three different numbers, and a simulated customer can accept, counter or cancel. Once a price is agreed, the closest free drivers are listed with the reason for each, and the dispatcher sends the job. Agreement charts compare what the customer offered, what the AI suggested and what was agreed. Finished requests can be hidden, which keeps them on record.
 
-## DeepSpace integrations used
+**The driver screen** shows only the jobs sent to that driver: price, distance, minutes to pickup, and accept or reject. A driver can only do one job at a time, on a sped-up clock.
 
-- **Records with per-collection role permissions, enforced in the Durable Object.** Three roles map onto the app: owner (`admin`), dispatcher (`member`, the default for anyone who signs in) and driver (`viewer`). Drivers read none of the console. Each dispatcher has a **private workspace**: requests, fares and negotiations are `read: 'own'`, so another dispatcher's account sees none of them. Offers use `ownerField: 'driverId'`, so a driver reads only their own offer, decided before anything is broadcast.
-- **Live record subscriptions.** Every screen updates in real time from the record connection; no polling.
-- **Server actions.** Pricing, negotiation, sending jobs, driver replies and notifications run as actions. They bypass per-record permissions, so each checks the caller's role and ownership by hand.
-- **Background jobs** (durable job room, `useJobs`). The owner's demo-data seeding runs as a job; the job queue is admin-only.
-- **AI through the DeepSpace proxy** (Claude Haiku 5.5). The pricing action forwards the signed-in dispatcher's own token, so the call is billed to their DeepSpace credits, not mine.
+**The customer screen** lets a person ask for a ride and offer a price. A simulated dispatcher quotes from past fares and can be haggled with, but it never goes below its own hidden lowest price. Once agreed, a driver is matched.
 
-## Main tradeoff
+Both sides get notifications inside the app.
 
-I built a **dispatcher console, not a rider-and-driver marketplace.** A live two-sided market needs two signed-in people at once, which a reviewer cannot supply in a short look. So the other side of every interaction (the drivers, the customer, and the dispatcher on the customer screen) is **simulated**, and the app says so wherever it shows them. What I gave up is real two-sided matching. What I kept is real enforcement: the permissions, the sum check, the one-job-at-a-time rule and the negotiation limits all run on the server.
+## DeepSpace pieces I used
 
-I also **cut payments**: DeepSpace offers Stripe Checkout, not payouts to drivers, so I could not build a real money flow and chose not to fake one.
+- **Records with role permissions**, enforced in the Durable Object. The owner is `admin`, dispatchers are `member` (the default for anyone who signs in) and drivers are `viewer`. Each dispatcher has a private workspace, so another dispatcher's account can't see their requests, fares or negotiations. A driver can read only their own offers.
+- **Live subscriptions.** Screens update on their own, with no refreshing.
+- **Server actions** for pricing, negotiating, sending jobs, driver replies and notifications. Actions skip the per-record permission check, so each one checks the caller's role and ownership itself.
+- **Background jobs** for seeding the demo data. Only the owner can start one.
+- **AI through the DeepSpace proxy** (Claude Haiku 5.5). The pricing call uses the signed-in person's own token, so it's billed to their credits and not mine.
 
-## What the agent did
+## The main tradeoff
 
-I used Claude Code. It wrote the seed generator, the pricing pipeline and its checks, the negotiation rules, the server actions, the interface and the tests, and deployed the app. It also found two real holes and closed them: in the first version any signed-in user could start a background job running as the dispatcher, and the scaffold's integration route billed the app owner by default, so any signed-in user could have spent my credits. Everything now bills the caller, and a test fails if that regresses. I made the product decisions, signed in to DeepSpace and GitHub, redirected the design several times (including to a dispatcher-first app), and tried the live app.
+I made a dispatcher console and not a rider-and-driver marketplace. A live two-sided market needs two people signed in at once, and a reviewer can't supply that in a quick look. So the other side of every interaction (the drivers, the customer, and the dispatcher on the customer screen) is simulated, and the app labels it that way. What I gave up is real two-sided matching. What I kept is real enforcement: the permissions, the sum check, the one-job-at-a-time rule and the negotiation limits all run on the server.
 
-## What I verified by hand
+I also cut payments. DeepSpace has Stripe Checkout but no payouts to drivers, so I couldn't build a real money flow and didn't want to fake one.
+
+## What Claude Code did
+
+I built this with Claude Code. It wrote the demo data, the pricing logic and its checks, the negotiation rules, the server actions, the screens and the tests, and it deployed the app. It also caught two real holes in what it had built: any signed-in user could have started a background job running as the dispatcher, and the starter template billed the app owner by default, so anyone signed in could have spent my credits. Both are fixed, and a test fails if the billing one ever comes back.
+
+I made the product decisions, signed in to DeepSpace and GitHub, changed direction several times (including to a dispatcher-first app), and tried the live site.
+
+## What I checked by hand
 
 On the live site:
 
-- Seeding the shared demo data produced 20 drivers and 140 fare-history rows, all marked synthetic. Running it again left the counts unchanged.
-- Pricing a request with the real model worked and produced a fare that appears in the chart.
+- Seeding the demo data gave 20 drivers and 140 fare-history rows, all marked as synthetic. Running it again changed nothing.
+- Pricing a request with the real model worked and showed up in the charts.
 - On the driver screen, accepting a job started a countdown and locked the other jobs until it finished. The notification bell updated.
-- **Who pays, checked with a second account.** Before the test my DeepSpace account showed 11 AI calls ($0.0041). I signed in as a different dispatcher, got that account's own demo requests, and priced one: the price details read "Priced by the model", so a real model call ran. Then I negotiated, sent the job, and the simulated driver accepted and completed it. Afterwards my account still showed exactly 11 calls, so the call was billed to the second account, not to me.
-- Using the app found two real bugs, both fixed: the pricing job read a record one level too shallow and failed with "Unknown zone: undefined", and a job accepted before the countdown existed locked the driver screen permanently.
+- Who pays for the AI: before the test my DeepSpace account showed 11 AI calls ($0.0041). I signed in as a different account, priced a request (the details said "Priced by the model", so a real call ran), negotiated, sent the job, and the simulated driver accepted and finished it. Afterwards my account still showed exactly 11 calls, so that call was billed to the other account.
+- Using the app turned up two bugs, both fixed. One was a record read one level too shallow ("Unknown zone: undefined"). The other was a job accepted before the countdown existed that locked the driver screen for good.
 
-Covered by **152 automated tests, not re-checked by hand** (this includes the customer screen and the Hide rule, which I have not tried on the live site): the role permissions run against the SDK's real permission check (driver B cannot read driver A's offer; a driver cannot read requests or edit a price); the fare reconcile rule against a deliberately lying model (wrong arithmetic, junk text, decimals, out-of-range totals, a crash); the negotiation limits; and the one-job-at-a-time and locked-after-accept rules.
+152 automated tests cover the rest, and I haven't re-checked these by hand: the role permissions (run against the SDK's real permission check), the fare rule against a model made to lie, the negotiation limits, and the one-job-at-a-time rules. The customer screen, Hide, the request queue note and "Receive a new request" have only been tested this way and not yet tried on the live site.
 
-**Not verified live:** that a second dispatcher cannot see *my* requests (enforced by the permission rules and covered by tests, but I did not look for them from the second account), and I did not sign in as a driver (`viewer`) account. I also could not read the second account's own credit balance, only that mine did not move.
+Not verified live: that a second dispatcher can't see my requests (the rules and tests say so, but I didn't look from the other account), and a real driver (`viewer`) account. I also couldn't read the other account's balance, only that mine didn't move.
 
-## What I left out, and why
+## What I left out
 
-- **Real routing from customer to dispatcher:** the console's incoming requests come from simulated customers, and the customer screen talks to a simulated dispatcher, so a real customer's request never reaches a real dispatcher's console. Connecting them needs two real people at once; it is the natural next step.
-- **Payments:** no payout support on the platform (see above).
-- **Recurring contracts and cancellation fees:** a good idea (a regular customer with the same trip every day), but not built in the time available.
-- **Scheduled jobs (cron), email and push notifications, a map, chat:** cut for time. Notifications are in-app only.
-- **A third "customer" role:** DeepSpace has three roles, so drivers use `viewer`; a customer role would need a profile field instead.
+- **A real customer reaching a real dispatcher.** Incoming requests come from simulated customers, and the customer screen talks to a simulated dispatcher. Joining them is the obvious next step, but it needs two real people and a way to tell customers from dispatchers, which the three DeepSpace roles can't do on their own.
+- **Payments**, for the reason above.
+- **Recurring contracts** (a regular customer with the same trip every day), scheduled jobs, email and push notifications, a map and chat. I ran out of time. Notifications are in-app only.
 
-## Honest limits
+## Limits
 
-All fleet, request and history data is synthetic (14 days, 140 rows), so the AI's numbers are only as meaningful as that history. The chart also compares the AI with a hidden reference price that only exists because the data is synthetic; on the handful of fares I priced it sat a few percent above that reference, which is far too few to call a finding, and I have not measured the effect of rain. Jobs sent to drivers belong to the driver (which is what keeps them private to one driver), so a dispatcher's list of the jobs they sent is filtered on screen rather than enforced by the database; everything else in a dispatcher's workspace is enforced by the permission rules.
+All the fleet, request and history data is synthetic, so the AI's prices are only as meaningful as 14 days of generated history. The charts also compare the AI with a hidden reference price that exists only because the data is fake. On the few fares I priced it sat a few percent above that, which is too few to call a finding, and I haven't measured the effect of rain. Jobs sent to drivers belong to the driver, which is what keeps them private to one driver, so a dispatcher's list of jobs they sent is filtered on screen and not enforced by the database. Everything else in a dispatcher's workspace is enforced by the permission rules.
