@@ -1,7 +1,8 @@
 /**
- * Your prices against the AI's suggestions, and the AI's suggestions against
- * the hidden reference price. Every bar is one fare row; click a row to jump to
- * its request. Numbers come from dispatch/variance.ts (tested).
+ * Three prices per request, side by side: what the customer PROPOSED, what the
+ * AI SUGGESTED, and what you AGREED. Also the AI against the demo's hidden
+ * reference price. Each group is one fare row; click a route to jump to its
+ * request. Numbers come from dispatch/variance.ts (tested).
  */
 
 import { useQuery } from 'deepspace'
@@ -12,6 +13,7 @@ interface RequestData {
   origin: string
   destination: string
   weather: string
+  proposedCents?: number
 }
 interface FareData {
   requestId: string
@@ -39,6 +41,7 @@ export function VariancePanel() {
         suggestedCents: f.data.modelTotalCents,
         finalCents: f.data.finalCents,
         referenceCents: f.data.referenceCents,
+        proposedCents: r.proposedCents,
         overridden: f.data.overridden === 1,
       },
     ]
@@ -47,50 +50,58 @@ export function VariancePanel() {
   if (rows.length === 0) {
     return (
       <section data-testid="variance-panel" className="mt-8 rounded-lg border border-border bg-card p-4">
-        <h2 className="text-sm font-semibold">Your prices vs the AI</h2>
+        <h2 className="text-sm font-semibold">Proposed vs AI vs agreed</h2>
         <p className="mt-1 text-sm text-muted-foreground">Price a request to see this chart.</p>
       </section>
     )
   }
 
   const s = summarize(rows)
-  const maxAbs = Math.max(5, ...s.rows.map((r) => Math.abs(r.deltaPct)))
+  const scale = Math.max(1, ...s.rows.flatMap((r) => [r.proposedCents ?? 0, r.suggestedCents, r.finalCents]))
   const rain = s.modelBias.byWeather.rain
   const clear = s.modelBias.byWeather.clear
 
+  const bar = (label: string, cents: number | undefined, cls: string, testId: string) => (
+    <div className="flex items-center gap-2">
+      <span className="w-32 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="h-2 flex-1 rounded bg-muted">
+        <div className={`h-2 rounded ${cls}`} style={{ width: `${cents ? (cents / scale) * 100 : 0}%` }} />
+      </div>
+      <span data-testid={testId} className="w-16 shrink-0 text-right text-xs tabular-nums">
+        {cents ? usd(cents) : '\u2014'}
+      </span>
+    </div>
+  )
+
   return (
     <section data-testid="variance-panel" className="mt-8 rounded-lg border border-border bg-card p-4">
-      <h2 className="text-sm font-semibold">Your prices vs the AI</h2>
+      <h2 className="text-sm font-semibold">Proposed vs AI vs agreed</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        {s.overriddenCount === 0
-          ? 'You have not changed any prices yet, so every bar is zero.'
-          : `You changed ${s.overriddenCount} of ${s.rows.length} prices. On average you moved them ${s.meanAbsDeltaPct.toFixed(1)}% (${signed(s.meanDeltaPct)} net).`}
+        {s.meanAiVsProposedPct === null
+          ? 'No customer prices yet, so only the AI and agreed prices are shown.'
+          : `On average the AI suggests ${signed(s.meanAiVsProposedPct)} against what customers propose` +
+            (s.meanFinalVsProposedPct === null ? '.' : `, and you settle ${signed(s.meanFinalVsProposedPct)} from their proposal.`)}
       </p>
 
-      <ul className="mt-4 space-y-2" aria-label="Difference between your price and the AI suggestion, per request">
-        {s.rows.map((r) => {
-          const w = (Math.abs(r.deltaPct) / maxAbs) * 50
-          return (
-            <li key={r.requestId} data-testid={`variance-${r.requestId}`} className="text-sm">
-              <div className="flex justify-between gap-3">
-                <a href={`#request-${r.requestId}`} className="underline-offset-4 hover:underline">
-                  {r.label}
-                </a>
-                <span className="tabular-nums text-muted-foreground">
-                  {usd(r.suggestedCents)} → {usd(r.finalCents)} ({signed(r.deltaPct)})
-                </span>
-              </div>
-              {/* Zero-centred bar: right = you charged more, left = less. */}
-              <div className="relative mt-1 h-2 rounded bg-muted">
-                <div className="absolute left-1/2 top-0 h-2 w-px bg-border" />
-                <div
-                  className={`absolute top-0 h-2 rounded ${r.deltaPct >= 0 ? 'bg-primary' : 'bg-red-400'}`}
-                  style={r.deltaPct >= 0 ? { left: '50%', width: `${w}%` } : { right: '50%', width: `${w}%` }}
-                />
-              </div>
-            </li>
-          )
-        })}
+      <ul className="mt-4 space-y-4" aria-label="Customer proposed, AI suggested and agreed price for each request">
+        {s.rows.map((r) => (
+          <li key={r.requestId} data-testid={`variance-${r.requestId}`} className="text-sm">
+            <div className="flex justify-between gap-3">
+              <a href={`#request-${r.requestId}`} className="font-medium underline-offset-4 hover:underline">
+                {r.label}
+              </a>
+              <span className="tabular-nums text-muted-foreground">
+                agreed vs AI {signed(r.deltaPct)}
+                {r.finalVsProposedPct !== undefined && ` · vs proposed ${signed(r.finalVsProposedPct)}`}
+              </span>
+            </div>
+            <div className="mt-1 space-y-1">
+              {bar('Customer proposed', r.proposedCents, 'bg-muted-foreground', `bar-proposed-${r.requestId}`)}
+              {bar('AI suggests', r.suggestedCents, 'bg-primary', `bar-ai-${r.requestId}`)}
+              {bar('Agreed / your price', r.finalCents, 'bg-green-500', `bar-final-${r.requestId}`)}
+            </div>
+          </li>
+        ))}
       </ul>
 
       {s.modelBias.all && (
@@ -98,8 +109,8 @@ export function VariancePanel() {
           <p>
             <span className="font-medium text-foreground">AI vs the demo&apos;s hidden reference price:</span>{' '}
             {signed(s.modelBias.all.meanPct)} on average across {s.modelBias.all.count} fares
-            {rain && ` · rain ${signed(rain.meanPct)} (${rain.count})`}
-            {clear && ` · clear ${signed(clear.meanPct)} (${clear.count})`}.
+            {rain && ` \u00b7 rain ${signed(rain.meanPct)} (${rain.count})`}
+            {clear && ` \u00b7 clear ${signed(clear.meanPct)} (${clear.count})`}.
           </p>
           <p className="mt-1">
             The reference exists only because the demo data is synthetic. With few fares these numbers are noisy,

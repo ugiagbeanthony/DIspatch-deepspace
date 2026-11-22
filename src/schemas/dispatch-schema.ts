@@ -52,6 +52,8 @@ export const requestsSchema: CollectionSchema = {
     { name: 'originLat', storage: 'number', interpretation: 'plain' },
     { name: 'originLng', storage: 'number', interpretation: 'plain' },
     { name: 'hour', storage: 'number', interpretation: 'plain' },
+    /** What the customer offers to pay when they call. */
+    { name: 'proposedCents', storage: 'number', interpretation: 'plain' },
     { name: 'status', storage: 'text', interpretation: 'plain', maxLength: 24 },
     { name: 'weather', storage: 'text', interpretation: 'plain', maxLength: 24 },
     { name: 'synthetic', storage: 'number', interpretation: 'plain' },
@@ -133,4 +135,25 @@ export const notificationsSchema: CollectionSchema = {
     member: { read: 'own', create: false, update: 'own', delete: false },
     admin: { read: true, create: true, update: true, delete: true },
   },
+}
+
+/**
+ * One negotiation per request: the dispatcher against the simulated customer.
+ * Written only by the `negotiate` action, which runs the customer's replies
+ * server-side. The customer's hidden maximum is never stored here.
+ */
+export const negotiationsSchema: CollectionSchema = {
+  name: 'negotiations',
+  columns: [
+    { name: 'requestId', storage: 'text', interpretation: 'plain', required: true },
+    /** open | countered | agreed | cancelled | rejected */
+    { name: 'status', storage: 'text', interpretation: 'plain', maxLength: 16 },
+    { name: 'round', storage: 'number', interpretation: 'plain' },
+    { name: 'quoteCents', storage: 'number', interpretation: 'plain' },
+    { name: 'counterCents', storage: 'number', interpretation: 'plain' },
+    { name: 'agreedCents', storage: 'number', interpretation: 'plain' },
+    /** JSON text: [{from, cents, note}] */
+    { name: 'log', storage: 'text', interpretation: 'plain', maxLength: 3000 },
+  ],
+  permissions: dispatcherReadOnly,
 }

@@ -155,6 +155,12 @@ describe('one job at a time, on the demo clock', () => {
     expect(activeJob([b], T0)).toBeNull()
   })
 
+  it('an accepted job with no start time is treated as done, so it cannot lock a driver out', () => {
+    const legacy = job({ id: 'old', status: 'accepted', etaMin: 3 })
+    expect(jobPhase(legacy, T0)).toBe('done')
+    expect(activeJob([legacy], T0)).toBeNull()
+  })
+
   it('a fresh offer starts with no acceptance time', () => {
     expect(buildOffer(base).acceptedAt).toBe(0)
   })

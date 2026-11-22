@@ -14,6 +14,7 @@ import {
   driversSchema,
   fareHistorySchema,
   faresSchema,
+  negotiationsSchema,
   notificationsSchema,
   requestsSchema,
 } from '../schemas/dispatch-schema'
@@ -139,5 +140,18 @@ describe('notifications: each person reads only their own', () => {
     expect(canCreate(notificationsSchema, 'viewer')).toBe(false)
     expect(canCreate(notificationsSchema, 'member')).toBe(false)
     expect(canCreate(notificationsSchema, '*')).toBe(false)
+  })
+})
+
+describe('negotiations: written only by the server action', () => {
+  it('a dispatcher reads them but cannot write one directly (so cannot fake the customer)', () => {
+    expect(canRead(negotiationsSchema, 'member', rec(), DISPATCHER)).toBe(true)
+    expect(canCreate(negotiationsSchema, 'member')).toBe(false)
+    expect(canUpdate(negotiationsSchema, 'member', rec(), DISPATCHER)).toBe(false)
+  })
+
+  it('a driver and a signed-out visitor see none', () => {
+    expect(canRead(negotiationsSchema, 'viewer', rec(), DRIVER_A)).toBe(false)
+    expect(canRead(negotiationsSchema, '*', rec(), 'anon')).toBe(false)
   })
 })

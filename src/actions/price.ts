@@ -28,6 +28,10 @@ export const price: ActionHandler<Env> = async ({ userId, params, tools, env, ca
     const got = await tools.get('requests', requestId)
     if (!got.success) return fail('Request not found')
     const req = requestFromGet(got.data)
+    const status = (got.data.record.data as { status?: string }).status
+    if (status === 'agreed' || status === 'offered' || status === 'accepted') {
+      return fail('A price is already agreed for this request, so it cannot be re-priced.')
+    }
 
     const hist = await tools.query('fareHistory', { limit: 500 })
     if (!hist.success) return fail('Could not read fare history')

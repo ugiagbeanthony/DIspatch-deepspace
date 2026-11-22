@@ -32,8 +32,10 @@ export const sendOffer: ActionHandler<Env> = async ({ userId, params, tools, env
 
   const req = await getFields(tools, 'requests', requestId)
   if (!req) return fail('Request not found')
-  const fare = await getFields(tools, 'fares', `fare-${requestId}`)
-  if (!fare || typeof fare.finalCents !== 'number') return fail('Price the request first')
+  const neg = await getFields(tools, 'negotiations', `neg-${requestId}`)
+  if (!neg || neg.status !== 'agreed' || typeof neg.agreedCents !== 'number') {
+    return fail('Agree a price with the customer first')
+  }
 
   // Once any driver has accepted this request it is taken: no further sending.
   const existing = await tools.query('offers', { where: { requestId }, limit: 50 })
@@ -56,7 +58,7 @@ export const sendOffer: ActionHandler<Env> = async ({ userId, params, tools, env
     requestId,
     origin: String(req.origin),
     destination: String(req.destination),
-    fareCents: fare.finalCents,
+    fareCents: neg.agreedCents,
     driverUserId,
     dispatcherId: userId,
     km,

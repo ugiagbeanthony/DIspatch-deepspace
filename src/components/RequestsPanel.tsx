@@ -1,21 +1,21 @@
 /**
  * The dispatcher's work list. For each request: price it (on YOUR DeepSpace
- * credits), adjust the price with a reason, see ranked drivers with reasons,
- * send a job, and watch the answer come back.
+ * credits), negotiate the price with the simulated customer (their proposal vs
+ * the AI's suggestion vs yours), then see ranked drivers with reasons, send a
+ * job at the agreed price, and watch the answer come back.
  *
- * Writes that need trust (pricing, sending jobs, replies) go through server
- * actions; the price adjustment is a direct update the dispatcher's role
- * allows. The "adds up" line is computed here by summing the stored factor
+ * Every write that needs trust (pricing, negotiating, sending jobs, replies)
+ * goes through a server action. The "adds up" line is computed here by summing the stored factor
  * rows on their own, an independent look at the invariant the server enforced.
  */
 
 import { useEffect, useState } from 'react'
-import { useMutations, useQuery } from 'deepspace'
+import { useQuery } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '../lib/call-action'
 import { rankDrivers, type DriverLite } from '../matching/rank'
 import { jobPhase, sendBlockReason, usd } from '../dispatch/offers'
-import { validateAdjustment } from '../dispatch/variance'
+import { parseDollars, parseTurns } from '../negotiation/customer'
 
 interface RequestData {
   origin: string
@@ -23,6 +23,7 @@ interface RequestData {
   originLat: number
   originLng: number
   hour: number
+  proposedCents?: number
   weather: string
   status: string
   synthetic?: number
@@ -61,6 +62,16 @@ interface OfferData {
   simulated?: number
 }
 
+interface NegotiationData {
+  requestId: string
+  status: string
+  round: number
+  quoteCents: number
+  counterCents: number
+  agreedCents: number
+  log: string
+}
+
 interface Factor {
   name: string
   cents: number
@@ -79,6 +90,10 @@ function parseFactors(json: string): Factor[] {
 const STATUS_LABEL: Record<string, string> = {
   open: 'New',
   priced: 'Priced',
+  negotiating: 'Negotiating',
+  agreed: 'Price agreed',
+  cancelled: 'Customer cancelled',
+  rejected: 'Rejected',
   offered: 'Sent to driver',
   accepted: 'Accepted',
   declined: 'Declined',
@@ -89,7 +104,7 @@ export function RequestsPanel() {
   const fares = useQuery<FareData>('fares')
   const drivers = useQuery<DriverData>('drivers')
   const offers = useQuery<OfferData>('offers')
-  const fareWrites = useMutations<Partial<FareData>>('fares')
+  const negotiations = useQuery<NegotiationData>('negotiations')
 
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -100,7 +115,7 @@ export function RequestsPanel() {
   const [open, setOpen] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [form, setForm] = useState<Record<string, { price: string; reason: string }>>({})
+  const [quotes, setQuotes] = useState<Record<string, string>>({})
 
   const setError = (id: string, msg: string | null) =>
     setErrors((e) => {
@@ -123,20 +138,12 @@ export function RequestsPanel() {
     else then?.()
   }
 
-  async function saveAdjustment(requestId: string, fareId: string, suggested: number) {
-    const f = form[requestId] ?? { price: '', reason: '' }
-    const v = validateAdjustment(suggested, f.price, f.reason)
-    if ('error' in v) return setError(requestId, v.error)
-    setError(requestId, null)
-    try {
-      await fareWrites.put(fareId, {
-        finalCents: v.value.finalCents,
-        overridden: v.value.overridden ? 1 : 0,
-        overrideReason: v.value.overrideReason,
-      })
-    } catch (e) {
-      setError(requestId, e instanceof Error ? e.message : 'Could not save the price')
-    }
+  async function sendQuote(requestId: string) {
+    const parsed = parseDollars(quotes[requestId] ?? '')
+    if ('error' in parsed) return setError(requestId, parsed.error)
+    await run(requestId, 'negotiate', { requestId, move: 'quote', cents: parsed.cents }, () =>
+      setQuotes((q) => ({ ...q, [requestId]: '' })),
+    )
   }
 
   const rows = [...requests.records].sort((a, b) => a.recordId.localeCompare(b.recordId))
@@ -160,11 +167,18 @@ export function RequestsPanel() {
           const adds = fare ? sum === fare.modelTotalCents : false
           const isOpen = open === r.recordId
           const myOffers = offers.records.filter((o) => o.data.requestId === r.recordId)
-          const blocked = sendBlockReason(myOffers.map((o) => o.data))
+          const neg = negotiations.records.find((n) => n.data.requestId === r.recordId)?.data
+          const proposed = r.data.proposedCents
+          const agreed = neg?.status === 'agreed'
+          const negOpen = !neg || neg.status === 'open' || neg.status === 'countered'
+          const turns = parseTurns(neg?.log)
+          // A job can go out only at an agreed price, and only until a driver accepts.
+          const blocked =
+            sendBlockReason(myOffers.map((o) => o.data)) ??
+            (agreed ? null : 'Agree a price with the customer first.')
           const ranked = fare
             ? rankDrivers({ lat: r.data.originLat, lng: r.data.originLng }, fleet).slice(0, 3)
             : []
-          const f = form[r.recordId] ?? { price: fare ? (fare.finalCents / 100).toFixed(2) : '', reason: '' }
 
           return (
             <li
@@ -194,16 +208,14 @@ export function RequestsPanel() {
                     <span data-testid={`fare-${r.recordId}`} className="text-lg font-semibold">
                       {usd(fare.finalCents)}
                     </span>
-                    {fare.overridden === 1 && (
-                      <span className="ml-2 text-xs text-muted-foreground">adjusted from {usd(fare.modelTotalCents)}</span>
-                    )}
+                    <span className="ml-2 text-xs text-muted-foreground">{agreed ? 'agreed' : 'AI suggestion'}</span>
                     <span className="ml-2 text-xs text-muted-foreground">{isOpen ? 'hide price details' : 'price details'}</span>
                   </button>
                 )}
 
                 <Button
                   onClick={() => run(r.recordId, 'price', { requestId: r.recordId }, () => setOpen(r.recordId))}
-                  disabled={busy !== null}
+                  disabled={busy !== null || agreed || myOffers.length > 0}
                 >
                   {busy === `${r.recordId}:price` ? 'Pricing…' : fare ? 'Re-price' : 'Price'}
                 </Button>
@@ -245,35 +257,120 @@ export function RequestsPanel() {
                       : ''}
                   </p>
 
-                  {/* Adjust the price */}
-                  <div className="mt-4 flex flex-wrap items-end gap-3">
-                    <label className="text-sm">
-                      <span className="mb-1 block text-muted-foreground">Your price ($)</span>
-                      <input
-                        data-testid={`adjust-price-${r.recordId}`}
-                        className="h-9 w-28 rounded-md border border-border bg-background px-2"
-                        value={f.price}
-                        onChange={(e) => setForm({ ...form, [r.recordId]: { ...f, price: e.target.value } })}
-                      />
-                    </label>
-                    <label className="min-w-[12rem] flex-1 text-sm">
-                      <span className="mb-1 block text-muted-foreground">Why (required if you change it)</span>
-                      <input
-                        data-testid={`adjust-reason-${r.recordId}`}
-                        className="h-9 w-full rounded-md border border-border bg-background px-2"
-                        value={f.reason}
-                        onChange={(e) => setForm({ ...form, [r.recordId]: { ...f, reason: e.target.value } })}
-                      />
-                    </label>
-                    <Button
-                      variant="secondary"
-                      onClick={() => saveAdjustment(r.recordId, fareRec!.recordId, fare.modelTotalCents)}
-                    >
-                      Save price
-                    </Button>
-                  </div>
-                  {fare.overridden === 1 && fare.overrideReason && (
-                    <p className="mt-2 text-muted-foreground">Your reason: {fare.overrideReason}</p>
+                  {/* Negotiate with the simulated customer */}
+                  <h3 className="mt-5 font-semibold">Price negotiation</h3>
+                  <dl className="mt-2 grid grid-cols-3 gap-3">
+                    <div>
+                      <dt className="text-muted-foreground">Customer proposed</dt>
+                      <dd data-testid={`proposed-${r.recordId}`} className="font-semibold">
+                        {proposed ? usd(proposed) : 'none'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">AI suggests</dt>
+                      <dd className="font-semibold">{usd(fare.modelTotalCents)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Agreed</dt>
+                      <dd data-testid={`agreed-${r.recordId}`} className="font-semibold">
+                        {agreed ? usd(neg!.agreedCents) : '—'}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {!proposed && (
+                    <p className="mt-2 text-muted-foreground">
+                      This request has no customer price. Add a new request, or ask the owner to re-seed.
+                    </p>
+                  )}
+
+                  {proposed && negOpen && (
+                    <div className="mt-3 space-y-3">
+                      {neg?.status === 'countered' && (
+                        <p data-testid={`counter-${r.recordId}`} className="font-medium">
+                          The customer counter-offers {usd(neg.counterCents)}.
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {neg?.status === 'countered' ? (
+                          <Button
+                            disabled={busy !== null}
+                            onClick={() => run(r.recordId, 'negotiate', { requestId: r.recordId, move: 'accept-counter' })}
+                          >
+                            Accept {usd(neg.counterCents)}
+                          </Button>
+                        ) : (
+                          <Button
+                            disabled={busy !== null}
+                            onClick={() => run(r.recordId, 'negotiate', { requestId: r.recordId, move: 'accept-proposed' })}
+                          >
+                            Accept customer&apos;s {usd(proposed)}
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          disabled={busy !== null}
+                          onClick={() =>
+                            run(r.recordId, 'negotiate', { requestId: r.recordId, move: 'quote', cents: fare.modelTotalCents })
+                          }
+                        >
+                          Quote AI price {usd(fare.modelTotalCents)}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          disabled={busy !== null}
+                          onClick={() => run(r.recordId, 'negotiate', { requestId: r.recordId, move: 'reject' })}
+                        >
+                          Reject job
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="text-sm">
+                          <span className="mb-1 block text-muted-foreground">
+                            {neg?.status === 'countered' ? 'Or counter with ($)' : 'Or quote your own price ($)'}
+                          </span>
+                          <input
+                            data-testid={`quote-input-${r.recordId}`}
+                            className="h-9 w-28 rounded-md border border-border bg-background px-2"
+                            value={quotes[r.recordId] ?? ''}
+                            onChange={(e) => setQuotes({ ...quotes, [r.recordId]: e.target.value })}
+                          />
+                        </label>
+                        <Button variant="secondary" disabled={busy !== null} onClick={() => sendQuote(r.recordId)}>
+                          Send quote
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {agreed && (
+                    <p data-testid={`neg-result-${r.recordId}`} className="mt-3 font-medium">
+                      Price agreed at {usd(neg!.agreedCents)}. You can now send the job to a driver.
+                    </p>
+                  )}
+                  {neg?.status === 'cancelled' && (
+                    <p data-testid={`neg-result-${r.recordId}`} className="mt-3 font-medium">
+                      The customer cancelled: they will not pay that much.
+                    </p>
+                  )}
+                  {neg?.status === 'rejected' && (
+                    <p data-testid={`neg-result-${r.recordId}`} className="mt-3 font-medium">
+                      You rejected this job.
+                    </p>
+                  )}
+
+                  {turns.length > 0 && (
+                    <ul className="mt-3 space-y-1 text-muted-foreground">
+                      {turns.map((t, k) => (
+                        <li key={k}>
+                          <span className="font-medium text-foreground">
+                            {t.from === 'dispatcher' ? 'You' : 'Customer (simulated)'}:
+                          </span>{' '}
+                          {t.note}
+                          {t.cents > 0 ? ` ${usd(t.cents)}` : ''}
+                        </li>
+                      ))}
+                    </ul>
                   )}
 
                   {/* Match a driver */}

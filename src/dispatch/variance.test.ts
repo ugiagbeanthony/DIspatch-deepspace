@@ -54,6 +54,26 @@ describe('summarize', () => {
   })
 })
 
+describe('three-way comparison: customer proposed vs AI vs agreed', () => {
+  it('measures the AI and the agreed price against what the customer proposed', () => {
+    const s = summarize([
+      row({ suggestedCents: 2400, finalCents: 2200, proposedCents: 2000 }),
+      row({ suggestedCents: 3000, finalCents: 2700, proposedCents: 2500 }),
+    ])
+    expect(s.rows[0].aiVsProposedPct).toBeCloseTo(20)
+    expect(s.rows[0].finalVsProposedPct).toBeCloseTo(10)
+    expect(s.meanAiVsProposedPct).toBeCloseTo(20)
+    expect(s.meanFinalVsProposedPct).toBeCloseTo(9)
+  })
+
+  it('leaves the comparison empty, not NaN, when no customer price exists', () => {
+    const s = summarize([row({ suggestedCents: 2000, finalCents: 2000 })])
+    expect(s.rows[0].aiVsProposedPct).toBeUndefined()
+    expect(s.meanAiVsProposedPct).toBeNull()
+    expect(s.meanFinalVsProposedPct).toBeNull()
+  })
+})
+
 describe('validateAdjustment', () => {
   const ok = (r: ReturnType<typeof validateAdjustment>) => ('value' in r ? r.value : null)
 

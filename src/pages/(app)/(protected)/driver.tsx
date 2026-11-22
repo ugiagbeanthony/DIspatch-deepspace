@@ -4,7 +4,7 @@
  * Accept / Reject. A driver never sees the request queue or sets a price.
  *
  * One job at a time: accepting starts a countdown from the job's ETA on the
- * demo clock (a minute of trip time is 5 real seconds). Until it finishes you
+ * demo clock (a minute of trip time is 10 real seconds). Until it finishes you
  * cannot accept another; the server enforces this, the disabled buttons only
  * reflect it.
  *
@@ -79,7 +79,7 @@ export default function DriverPage() {
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button variant="secondary" onClick={() => act('demo', 'demo-jobs')} disabled={busy !== null || current !== null}>
+        <Button variant="secondary" onClick={() => act('demo', 'demo-jobs')} disabled={busy !== null}>
           {busy === 'demo' ? 'Creating…' : mine.length ? 'Reset demo jobs' : 'Get demo jobs'}
         </Button>
         <span className="text-sm text-muted-foreground">Simulated jobs from a simulated dispatcher.</span>

@@ -136,6 +136,8 @@ export interface RequestSeed {
     originLat: number
     originLng: number
     hour: number
+    /** What the customer offers to pay (below the fair price, as callers do). */
+    proposedCents: number
     weather: 'clear' | 'rain'
     status: 'open'
     synthetic: 1
@@ -146,17 +148,18 @@ export interface RequestSeed {
  * Fixed on purpose: six hand-picked requests, two of them in the rain, so the
  * demo always has a rain case to price. Not random.
  */
-const REQUEST_PLAN: ReadonlyArray<readonly [string, string, number, 'clear' | 'rain']> = [
-  ['Downtown', 'Airport', 8, 'clear'],
-  ['University', 'Midtown', 18, 'rain'],
-  ['Harbor', 'Downtown', 13, 'clear'],
-  ['Midtown', 'Airport', 23, 'clear'],
-  ['Airport', 'University', 9, 'rain'],
-  ['Downtown', 'Harbor', 15, 'clear'],
+const REQUEST_PLAN: ReadonlyArray<readonly [string, string, number, 'clear' | 'rain', number]> = [
+  // origin, destination, hour, weather, share of the fair fare the customer offers
+  ['Downtown', 'Airport', 8, 'clear', 0.82],
+  ['University', 'Midtown', 18, 'rain', 0.9],
+  ['Harbor', 'Downtown', 13, 'clear', 0.78],
+  ['Midtown', 'Airport', 23, 'clear', 0.85],
+  ['Airport', 'University', 9, 'rain', 0.88],
+  ['Downtown', 'Harbor', 15, 'clear', 0.8],
 ]
 
 export function generateRequests(): RequestSeed[] {
-  return REQUEST_PLAN.map(([origin, destination, hour, weather], i) => {
+  return REQUEST_PLAN.map(([origin, destination, hour, weather, share], i) => {
     const z = zoneByName(origin)
     return {
       recordId: `seed-req-${i + 1}`,
@@ -166,6 +169,7 @@ export function generateRequests(): RequestSeed[] {
         originLat: z.lat,
         originLng: z.lng,
         hour,
+        proposedCents: Math.round((truthFareCents(origin, destination, hour, weather) * share) / 5) * 5,
         weather,
         status: 'open',
         synthetic: 1,

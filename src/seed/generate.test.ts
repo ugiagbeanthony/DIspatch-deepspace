@@ -7,6 +7,7 @@ import {
   generateDrivers,
   generateHistory,
   generateRequests,
+  truthFareCents,
 } from './generate'
 
 describe('seed generator', () => {
@@ -60,5 +61,14 @@ describe('seed generator', () => {
     expect(d.rainMultiplier).toBeGreaterThan(1.03)
     expect(d.rainMultiplier).toBeLessThan(1.25)
     expect(Object.keys(d.pairMedianCents).length).toBeGreaterThan(10)
+  })
+
+  it('gives every request a customer price a little under the fair fare', () => {
+    for (const r of generateRequests()) {
+      const fair = truthFareCents(r.data.origin, r.data.destination, r.data.hour, r.data.weather)
+      expect(r.data.proposedCents).toBeGreaterThan(0)
+      expect(r.data.proposedCents).toBeLessThan(fair)
+      expect(r.data.proposedCents).toBeGreaterThan(fair * 0.7)
+    }
   })
 })

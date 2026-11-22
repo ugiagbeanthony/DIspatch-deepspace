@@ -12,7 +12,7 @@ export const CITY_KMH = 25
  * Demo clock: one minute of trip time takes this many real milliseconds, so a
  * 6-minute job finishes in 30 seconds instead of making a reviewer wait.
  */
-export const SIM_MS_PER_MIN = 5000
+export const SIM_MS_PER_MIN = 10_000
 
 /** Prefix for ids that belong to the simulated fleet or dispatcher. */
 export const SIM_PREFIX = 'seed_'
@@ -87,7 +87,9 @@ export const jobDurationMs = (etaMin: number) => etaMin * SIM_MS_PER_MIN
 export function jobPhase(o: PhaseInput, nowMs: number): JobPhase {
   if (o.status === 'declined') return 'declined'
   if (o.status !== 'accepted') return 'pending'
-  if (!o.acceptedAt) return 'in-progress'
+  // An accepted job with no start time (accepted before the countdown existed)
+  // can never finish its countdown, so it must not lock the driver out.
+  if (!o.acceptedAt) return 'done'
   return nowMs < o.acceptedAt + jobDurationMs(o.etaMin) ? 'in-progress' : 'done'
 }
 

@@ -16,6 +16,8 @@ export interface FareRow {
   suggestedCents: number
   finalCents: number
   referenceCents?: number
+  /** What the customer proposed when they called. */
+  proposedCents?: number
   overridden: boolean
 }
 
@@ -25,6 +27,10 @@ export interface VarianceRow extends FareRow {
   deltaPct: number
   /** (suggested - reference) / reference, in percent; undefined with no reference. */
   modelBiasPct?: number
+  /** (agreed - proposed) / proposed, in percent; undefined with no customer price. */
+  finalVsProposedPct?: number
+  /** (AI - proposed) / proposed, in percent. */
+  aiVsProposedPct?: number
 }
 
 export interface Bias {
@@ -41,10 +47,19 @@ export interface VarianceSummary {
   meanDeltaPct: number
   /** Model vs hidden reference, overall and by weather. */
   modelBias: { all: Bias | null; byWeather: Record<string, Bias> }
+  /** Mean % the agreed price sits above/below what customers proposed. */
+  meanFinalVsProposedPct: number | null
+  /** Mean % the AI's suggestion sits above/below what customers proposed. */
+  meanAiVsProposedPct: number | null
 }
 
 const pct = (n: number, of: number) => (of === 0 ? 0 : (n / of) * 100)
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+
+function meanOrNull(xs: Array<number | undefined>): number | null {
+  const v = xs.filter((x): x is number => x !== undefined)
+  return v.length ? mean(v) : null
+}
 
 function biasOf(values: number[]): Bias | null {
   return values.length ? { count: values.length, meanPct: mean(values) } : null
@@ -59,6 +74,10 @@ export function summarize(fares: FareRow[]): VarianceSummary {
       f.referenceCents && f.referenceCents > 0
         ? pct(f.suggestedCents - f.referenceCents, f.referenceCents)
         : undefined,
+    finalVsProposedPct:
+      f.proposedCents && f.proposedCents > 0 ? pct(f.finalCents - f.proposedCents, f.proposedCents) : undefined,
+    aiVsProposedPct:
+      f.proposedCents && f.proposedCents > 0 ? pct(f.suggestedCents - f.proposedCents, f.proposedCents) : undefined,
   }))
 
   const withBias = rows.filter((r) => r.modelBiasPct !== undefined)
@@ -74,6 +93,8 @@ export function summarize(fares: FareRow[]): VarianceSummary {
     meanAbsDeltaPct: rows.length ? mean(rows.map((r) => Math.abs(r.deltaPct))) : 0,
     meanDeltaPct: rows.length ? mean(rows.map((r) => r.deltaPct)) : 0,
     modelBias: { all: biasOf(withBias.map((r) => r.modelBiasPct as number)), byWeather },
+    meanFinalVsProposedPct: meanOrNull(rows.map((r) => r.finalVsProposedPct)),
+    meanAiVsProposedPct: meanOrNull(rows.map((r) => r.aiVsProposedPct)),
   }
 }
 

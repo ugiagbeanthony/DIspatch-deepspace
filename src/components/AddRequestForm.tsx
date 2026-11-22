@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useMutations } from 'deepspace'
 import { Button } from '@/components/ui'
 import { ZONES } from '../seed/generate'
+import { parseDollars } from '../negotiation/customer'
 
 const selectCls =
   'h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground'
@@ -17,6 +18,7 @@ export function AddRequestForm() {
   const [destination, setDestination] = useState(ZONES[1].name)
   const [hour, setHour] = useState(8)
   const [weather, setWeather] = useState('clear')
+  const [proposed, setProposed] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [added, setAdded] = useState(false)
 
@@ -28,6 +30,11 @@ export function AddRequestForm() {
       setError('Pickup and drop-off must be different')
       return
     }
+    const price = parseDollars(proposed)
+    if ('error' in price) {
+      setError(`Customer's price: ${price.error}`)
+      return
+    }
     const z = ZONES.find((x) => x.name === origin)!
     try {
       await create({
@@ -36,11 +43,13 @@ export function AddRequestForm() {
         originLat: z.lat,
         originLng: z.lng,
         hour,
+        proposedCents: price.cents,
         weather,
         status: 'open',
         synthetic: 0,
       })
       setAdded(true)
+      setProposed('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add the request')
     }
@@ -53,7 +62,7 @@ export function AddRequestForm() {
       className="mt-8 rounded-lg border border-border bg-card p-4"
     >
       <h2 className="text-sm font-semibold">New request</h2>
-      <p className="mt-1 text-sm text-muted-foreground">A call comes in: add the trip.</p>
+      <p className="mt-1 text-sm text-muted-foreground">A call comes in: add the trip and the price the customer offers.</p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-sm">
           <span className="mb-1 block text-muted-foreground">Pickup</span>
@@ -87,6 +96,16 @@ export function AddRequestForm() {
             <option>clear</option>
             <option>rain</option>
           </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-muted-foreground">Customer offers ($)</span>
+          <input
+            data-testid="add-request-price"
+            className="h-9 w-28 rounded-md border border-border bg-background px-2 text-sm"
+            placeholder="e.g. 18.00"
+            value={proposed}
+            onChange={(e) => setProposed(e.target.value)}
+          />
         </label>
         <Button type="submit" disabled={!ready}>
           Add request
