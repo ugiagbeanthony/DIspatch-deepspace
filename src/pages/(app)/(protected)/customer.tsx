@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { useQuery, useUser } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '../../../lib/call-action'
+import { recent } from '../../../lib/recent'
 import { usd } from '../../../dispatch/offers'
 import { ZONES } from '../../../seed/generate'
 import { parseCustomerPrice } from '../../../negotiation/customer'
@@ -30,6 +31,9 @@ interface TripData {
   etaMin: number
   log: string
 }
+
+/** How many rides to show before the rest sit behind "Show all". */
+const PREVIEW = 3
 
 const selectCls = 'h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground'
 const inputCls = 'h-9 w-28 rounded-md border border-border bg-background px-2 text-sm'
@@ -55,11 +59,16 @@ export default function CustomerPage() {
   const [error, setError] = useState<string | null>(null)
   const [counters, setCounters] = useState<Record<string, string>>({})
   const [tripError, setTripError] = useState<Record<string, string>>({})
+  const [showAll, setShowAll] = useState(false)
 
-  // Mine only, newest first.
-  const mine = trips.records
-    .filter((t) => t.data.customerId === user?.id)
-    .sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
+  // Mine only. Show the latest few; a ride still being negotiated always stays visible.
+  const mine = trips.records.filter((t) => t.data.customerId === user?.id)
+  const { shown, sorted, more } = recent(mine, {
+    when: (t) => Date.parse(t.createdAt) || 0,
+    limit: PREVIEW,
+    keep: (t) => t.data.status === 'quoted',
+  })
+  const list = showAll ? sorted : shown
 
   async function request(e: React.FormEvent) {
     e.preventDefault()
@@ -155,7 +164,7 @@ export default function CustomerPage() {
       )}
 
       <ul className="mt-6 space-y-3">
-        {mine.map((t) => {
+        {list.map((t) => {
           const log = turns(t.data.log)
           return (
             <li key={t.recordId} data-testid={`trip-${t.recordId}`} className="rounded-lg border border-border bg-card p-4">
@@ -231,6 +240,17 @@ export default function CustomerPage() {
           )
         })}
       </ul>
+
+      {(more > 0 || showAll) && (
+        <button
+          data-testid="trips-toggle"
+          aria-expanded={showAll}
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-4 text-sm font-medium underline underline-offset-4"
+        >
+          {showAll ? `Show only the latest ${PREVIEW}` : `Show all ${mine.length} rides`}
+        </button>
+      )}
     </div>
   )
 }

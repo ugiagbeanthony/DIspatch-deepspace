@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import { useQuery, useUser } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '../../../lib/call-action'
+import { recent } from '../../../lib/recent'
 import { activeJob, jobPhase, remainingMs, usd } from '../../../dispatch/offers'
 
 interface OfferData {
@@ -33,6 +34,9 @@ interface OfferData {
   acceptedAt?: number
 }
 
+/** How many jobs to show before the rest sit behind "Show all". */
+const PREVIEW = 3
+
 const clock = (ms: number) => {
   const s = Math.ceil(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
@@ -44,6 +48,7 @@ export default function DriverPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [showAll, setShowAll] = useState(false)
 
   // Tick once a second so the countdown moves and finished jobs unlock the rest.
   useEffect(() => {
@@ -52,9 +57,17 @@ export default function DriverPage() {
   }, [])
 
   // Mine only, even for a role that can read more.
-  const mine = offers.records
-    .filter((o) => o.data.driverId === user?.id)
-    .sort((a, b) => a.recordId.localeCompare(b.recordId))
+  const mine = offers.records.filter((o) => o.data.driverId === user?.id)
+  // Latest few; a job waiting for you, or one you are on, always stays visible.
+  const { shown, sorted, more } = recent(mine, {
+    when: (o) => Date.parse(o.createdAt) || 0,
+    limit: PREVIEW,
+    keep: (o) => {
+      const phase = jobPhase(o.data, now)
+      return phase === 'pending' || phase === 'in-progress'
+    },
+  })
+  const list = showAll ? sorted : shown
   const current = activeJob(
     mine.map((o) => ({ ...o.data, id: o.recordId })),
     now,
@@ -96,7 +109,7 @@ export default function DriverPage() {
       )}
 
       <ul className="mt-6 space-y-3">
-        {mine.map((o) => {
+        {list.map((o) => {
           const phase = jobPhase(o.data, now)
           return (
             <li key={o.recordId} data-testid={`job-${o.recordId}`} className="rounded-lg border border-border bg-card p-4">
@@ -155,6 +168,17 @@ export default function DriverPage() {
           )
         })}
       </ul>
+
+      {(more > 0 || showAll) && (
+        <button
+          data-testid="jobs-toggle"
+          aria-expanded={showAll}
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-4 text-sm font-medium underline underline-offset-4"
+        >
+          {showAll ? `Show only the latest ${PREVIEW}` : `Show all ${mine.length} jobs`}
+        </button>
+      )}
     </div>
   )
 }
