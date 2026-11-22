@@ -164,6 +164,11 @@ export default function DriverPage() {
                   You rejected this job.
                 </p>
               )}
+              {phase === 'closed' && (
+                <p data-testid={`job-status-${o.recordId}`} className="mt-3 text-sm font-medium">
+                  This job was taken by another driver.
+                </p>
+              )}
             </li>
           )
         })}

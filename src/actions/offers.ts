@@ -8,7 +8,7 @@
  *   demo-jobs      anyone     -> three simulated jobs addressed to the caller
  */
 
-import type { ActionHandler } from 'deepspace/worker'
+import type { ActionHandler, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import {
   activeJob,
@@ -19,10 +19,44 @@ import {
   newOfferNotice,
   remainingMs,
   replyNotice,
+  resolveAcceptance,
+  type Resolution,
   sendBlockReason,
   simulatedReply,
 } from '../dispatch/offers'
 import { fail, getFields, getOwnedRequest, isDispatcher, notify, ok, roleOf, str } from './common'
+
+/**
+ * Make sure only ONE driver holds a job. Reads every offer for the request,
+ * works out the winner (earliest acceptance), marks any other accepted offer
+ * `taken` and every offer still waiting `withdrawn`. Demo jobs are standalone,
+ * so they are skipped. Safe to run again at any time: it gives the same answer.
+ */
+async function settle(tools: ActionTools, requestId: string | null): Promise<Resolution | null> {
+  if (!requestId || requestId.startsWith('demo-')) return null
+  const q = await tools.query('offers', { where: { requestId }, limit: 50 })
+  if (!q.success) return null
+  const res = resolveAcceptance(
+    q.data.records.map((r) => ({
+      id: r.recordId,
+      status: String((r.data as { status?: unknown }).status),
+      acceptedAt: Number((r.data as { acceptedAt?: unknown }).acceptedAt ?? 0),
+    })),
+  )
+  for (const id of res.demote) await tools.update('offers', id, { status: 'taken' })
+  for (const id of res.withdraw) await tools.update('offers', id, { status: 'withdrawn' })
+  return res
+}
+
+/** After a decline: still accepted, still waiting on someone, or really declined? */
+async function statusAfterDecline(tools: ActionTools, requestId: string): Promise<string> {
+  const q = await tools.query('offers', { where: { requestId }, limit: 50 })
+  if (!q.success) return 'declined'
+  const statuses = q.data.records.map((r) => String((r.data as { status?: unknown }).status))
+  if (statuses.includes('accepted')) return 'accepted'
+  if (statuses.includes('pending')) return 'offered'
+  return 'declined'
+}
 
 export const sendOffer: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   if (!isDispatcher(await roleOf(env, userId))) return fail('Only dispatchers can send jobs')
@@ -84,6 +118,7 @@ export const respondOffer: ActionHandler<Env> = async ({ userId, params, tools }
   if (!offer) return fail('Job not found')
   // Ownership: a driver may answer only a job addressed to them.
   if (offer.driverId !== userId) return fail('That job is not yours')
+  if (offer.status === 'withdrawn' || offer.status === 'taken') return fail('This job was taken by another driver.')
   if (offer.status !== 'pending') return fail(`Job is already ${String(offer.status)}`)
 
   // One job at a time: a driver who is mid-job cannot accept another until the
@@ -107,11 +142,22 @@ export const respondOffer: ActionHandler<Env> = async ({ userId, params, tools }
   const upd = await tools.update('offers', offerId, patch)
   if (!upd.success) return fail(`Could not save answer: ${upd.error}`)
 
+  // Only one driver can get a job. If another driver's acceptance counts first,
+  // this one is turned into `taken` (by settle) and the driver is told.
+  const requestId = str(offer.requestId)
+  if (status === 'accepted') {
+    const res = await settle(tools, requestId)
+    if (res && res.winner !== offerId) return fail('Sorry, another driver already took this job.')
+  }
+
   const me = await getFields(tools, 'users', userId)
   const name = (me && typeof me.name === 'string' && me.name) || 'Your driver'
   await notify(tools, str(offer.dispatcherId), replyNotice(name, status, offer as { origin: string; destination: string }))
-  const requestId = str(offer.requestId)
-  if (requestId && !requestId.startsWith('demo-')) await tools.update('requests', requestId, { status })
+  if (requestId && !requestId.startsWith('demo-')) {
+    await tools.update('requests', requestId, {
+      status: status === 'accepted' ? 'accepted' : await statusAfterDecline(tools, requestId),
+    })
+  }
 
   return ok({ offerId, status })
 }
@@ -126,6 +172,7 @@ export const simulateReply: ActionHandler<Env> = async ({ userId, params, tools,
   if (offer.dispatcherId !== userId) return fail('Job not found')
   const driverId = String(offer.driverId)
   if (!isSimulatedId(driverId)) return fail('Only simulated drivers can be answered for')
+  if (offer.status === 'withdrawn' || offer.status === 'taken') return fail('Another driver already took this job.')
   if (offer.status !== 'pending') return fail(`Job is already ${String(offer.status)}`)
 
   const status = simulatedReply(driverId, offerId)
@@ -133,12 +180,22 @@ export const simulateReply: ActionHandler<Env> = async ({ userId, params, tools,
   const upd = await tools.update('offers', offerId, patch)
   if (!upd.success) return fail(`Could not save answer: ${upd.error}`)
 
+  // Only one driver can get a job: if another already accepted, this one is `taken`.
+  const requestId = str(offer.requestId)
+  if (status === 'accepted') {
+    const res = await settle(tools, requestId)
+    if (res && res.winner !== offerId) return ok({ offerId, status: 'taken' })
+  }
+
   const found = await tools.query('drivers', { where: { userId: driverId }, limit: 1 })
   const name = (found.success && String(found.data.records[0]?.data.name)) || 'The driver'
   // The dispatcher who triggered it is the one to tell.
   await notify(tools, userId, replyNotice(`${name} (simulated)`, status, offer as { origin: string; destination: string }))
-  const requestId = str(offer.requestId)
-  if (requestId) await tools.update('requests', requestId, { status })
+  if (requestId) {
+    await tools.update('requests', requestId, {
+      status: status === 'accepted' ? 'accepted' : await statusAfterDecline(tools, requestId),
+    })
+  }
 
   return ok({ offerId, status })
 }

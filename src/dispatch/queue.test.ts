@@ -31,7 +31,8 @@ describe('buckets', () => {
     expect(bucketOf('negotiating', [], T0)).toBe('unattended')
     expect(bucketOf('agreed', [], T0)).toBe('unattended')
     expect(bucketOf('declined', [{ status: 'declined', etaMin: 3 }], T0)).toBe('unattended')
-    expect(bucketOf('offered', [waiting], T0)).toBe('in-progress')
+    // Sent but not answered yet: the dispatcher still has to collect the reply or resend.
+    expect(bucketOf('offered', [waiting], T0)).toBe('unattended')
     expect(bucketOf('accepted', [onTheWay], T0 + 1)).toBe('in-progress')
     expect(bucketOf('accepted', [done], T0)).toBe('final')
     expect(bucketOf('rejected', [], T0)).toBe('final')
@@ -52,19 +53,28 @@ describe('queue order', () => {
     { id: 'new-open', status: 'open', offers: [], at: 50 },
     { id: 'old-open', status: 'open', offers: [], at: 10 },
     { id: 'mid-priced', status: 'priced', offers: [], at: 30 },
-    { id: 'with-driver', status: 'offered', offers: [waiting], at: 5 },
+    { id: 'sent-waiting', status: 'offered', offers: [waiting], at: 5 },
+    { id: 'on-the-way', status: 'accepted', offers: [onTheWay], at: 2 },
     { id: 'old-rejected', status: 'rejected', offers: [], at: 1 },
     { id: 'new-rejected', status: 'rejected', offers: [], at: 90 },
   ]
 
-  it('puts the request that has waited longest first', () => {
-    const q = orderQueue(reqs, get, T0)
-    expect(ids(q).slice(0, 3)).toEqual(['old-open', 'mid-priced', 'new-open'])
+  it('puts the request that has waited longest first, including one sent to a driver who has not answered', () => {
+    const q = orderQueue(reqs, get, T0 + 1)
+    expect(ids(q).slice(0, 4)).toEqual(['sent-waiting', 'old-open', 'mid-priced', 'new-open'])
   })
 
-  it('then in-progress, then finished with the newest finished first', () => {
-    const q = orderQueue(reqs, get, T0)
-    expect(ids(q)).toEqual(['old-open', 'mid-priced', 'new-open', 'with-driver', 'new-rejected', 'old-rejected'])
+  it('then jobs with a driver on the way, then finished ones with the newest finished first', () => {
+    const q = orderQueue(reqs, get, T0 + 1)
+    expect(ids(q)).toEqual([
+      'sent-waiting',
+      'old-open',
+      'mid-priced',
+      'new-open',
+      'on-the-way',
+      'new-rejected',
+      'old-rejected',
+    ])
   })
 
   it('reports each request\u2019s bucket and keeps ties in their original order', () => {

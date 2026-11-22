@@ -73,7 +73,7 @@ export function buildOffer(i: OfferInput): OfferData {
   }
 }
 
-export type JobPhase = 'pending' | 'declined' | 'in-progress' | 'done'
+export type JobPhase = 'pending' | 'declined' | 'closed' | 'in-progress' | 'done'
 
 interface PhaseInput {
   status: string
@@ -86,6 +86,8 @@ export const jobDurationMs = (etaMin: number) => etaMin * SIM_MS_PER_MIN
 
 export function jobPhase(o: PhaseInput, nowMs: number): JobPhase {
   if (o.status === 'declined') return 'declined'
+  // Another driver got the job: this offer is over, whatever the driver does.
+  if (o.status === 'withdrawn' || o.status === 'taken') return 'closed'
   if (o.status !== 'accepted') return 'pending'
   // An accepted job with no start time (accepted before the countdown existed)
   // can never finish its countdown, so it must not lock the driver out.
@@ -128,6 +130,43 @@ function unit(s: string): number {
 /** How a simulated driver answers: about three in four jobs are accepted. */
 export function simulatedReply(driverUserId: string, offerId: string): 'accepted' | 'declined' {
   return unit(`${driverUserId}|${offerId}`) < 0.75 ? 'accepted' : 'declined'
+}
+
+export interface OfferRef {
+  id: string
+  status: string
+  acceptedAt?: number
+}
+
+export interface Resolution {
+  /** The one offer that gets the job, or null if nobody has accepted. */
+  winner: string | null
+  /** Other offers that were also accepted: too late, now `taken`. */
+  demote: string[]
+  /** Offers still waiting for an answer once the job is gone: now `withdrawn`. */
+  withdraw: string[]
+}
+
+/**
+ * Only one driver can have a job. A dispatcher may send the same request to
+ * several drivers; if more than one accepts, the EARLIEST acceptance wins (ties
+ * broken by offer id, so the answer never depends on who is asked first). Every
+ * other accepted offer is `taken`, and once there is a winner every offer still
+ * pending is `withdrawn`.
+ *
+ * It is a pure function of the offers, so running it again changes nothing:
+ * that is what keeps it correct when two drivers accept at the same moment.
+ */
+export function resolveAcceptance(offers: OfferRef[]): Resolution {
+  const accepted = offers
+    .filter((o) => o.status === 'accepted')
+    .sort((a, b) => (a.acceptedAt ?? 0) - (b.acceptedAt ?? 0) || a.id.localeCompare(b.id))
+  const winner = accepted[0]?.id ?? null
+  return {
+    winner,
+    demote: accepted.slice(1).map((o) => o.id),
+    withdraw: winner ? offers.filter((o) => o.status === 'pending').map((o) => o.id) : [],
+  }
 }
 
 export const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`

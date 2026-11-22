@@ -175,7 +175,11 @@ Dispatchers no longer log requests: the manual form is gone, `requests` is not
 client-creatable, and requests arrive via `demo-requests` (six on first visit)
 and `incoming-request` ("Receive a new request", capped at 30). Lists on the
 console, customer and driver screens show the latest three and expand
-(`src/lib/recent.ts`). 152 tests. The console lists requests as a queue (`src/dispatch/queue.ts`): unattended
+(`src/lib/recent.ts`). 160 tests. Only one driver can get a job: if several accept, `resolveAcceptance`
+(earliest wins, ties by id; `src/dispatch/offers.ts`) marks the rest `taken` and
+withdraws still-pending offers, run by respond-offer and simulate-reply. A job sent
+but unanswered stays in the attention queue (only an ACCEPTED, running job is
+in-progress). The console lists requests as a queue (`src/dispatch/queue.ts`): unattended
 oldest first, then with-a-driver, then finished newest first, with a "N more
 unattended requests" note when more are waiting than fit.
 Not tried by hand yet: customer screen, Hide, incoming requests.

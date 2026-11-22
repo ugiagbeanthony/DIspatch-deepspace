@@ -2,10 +2,10 @@
  * The dispatcher's queue. PURE.
  *
  * Every request is in one of three states of play:
- *   unattended   waiting on the dispatcher (new, priced, being negotiated, price
- *                agreed but not sent, or a driver declined and it needs sending
- *                again);
- *   in-progress  with a driver (a job is out, or a driver is on the way);
+ *   unattended   still needs the dispatcher: new, priced, being negotiated, price
+ *                agreed but not sent, a job sent and waiting for a driver's answer,
+ *                or a driver declined and it needs sending again;
+ *   in-progress  a driver has accepted and is on the way;
  *   final        done: completed, rejected by the dispatcher, or cancelled by
  *                the customer.
  *
@@ -33,10 +33,9 @@ export function isFinal(status: string, offers: OfferLike[], nowMs: number): boo
 
 export function bucketOf(status: string, offers: OfferLike[], nowMs: number): Bucket {
   if (isFinal(status, offers, nowMs)) return 'final'
-  // A job is out with a driver, or a driver is on the way.
-  if (offers.some((o) => jobPhase(o, nowMs) === 'pending' || jobPhase(o, nowMs) === 'in-progress')) {
-    return 'in-progress'
-  }
+  // Only once a driver has ACCEPTED and is on the way is the dispatcher done. A job
+  // that is merely sent still needs them: to collect the reply, or send it again.
+  if (offers.some((o) => jobPhase(o, nowMs) === 'in-progress')) return 'in-progress'
   return 'unattended'
 }
 

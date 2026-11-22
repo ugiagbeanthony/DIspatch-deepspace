@@ -101,7 +101,7 @@ const STATUS_LABEL: Record<string, string> = {
   agreed: 'Price agreed',
   cancelled: 'Customer cancelled',
   rejected: 'Rejected',
-  offered: 'Sent to driver',
+  offered: 'Waiting for a driver',
   accepted: 'Accepted',
   declined: 'Declined',
 }
@@ -513,7 +513,11 @@ export function RequestList({ limit }: { limit?: number }) {
                                   ? jobPhase(o.data, now) === 'done'
                                     ? 'completed'
                                     : 'accepted · on the way'
-                                  : o.data.status}
+                                  : o.data.status === 'withdrawn'
+                                    ? 'withdrawn (another driver took it)'
+                                    : o.data.status === 'taken'
+                                      ? 'taken by another driver'
+                                      : o.data.status}
                               </span>
                             </span>
                             {o.data.status === 'pending' && o.data.driverId.startsWith('seed_') && (

@@ -13,7 +13,7 @@ There are three screens.
 
 The dispatcher then negotiates. The customer's offer, the AI's price and the dispatcher's quote are three different numbers, and a simulated customer can accept, counter or cancel. Once a price is agreed, the closest free drivers are listed with the reason for each, and the dispatcher sends the job. Agreement charts compare what the customer offered, what the AI suggested and what was agreed. Finished requests can be hidden, which keeps them on record.
 
-**The driver screen** shows only the jobs sent to that driver: price, distance, minutes to pickup, and accept or reject. A driver can only do one job at a time, on a sped-up clock.
+**The driver screen** shows only the jobs sent to that driver: price, distance, minutes to pickup, and accept or reject. A driver can only do one job at a time, on a sped-up clock. A job can be sent to several drivers, but only the first to accept gets it. The rest are told it's taken.
 
 **The customer screen** lets a person ask for a ride and offer a price. A simulated dispatcher quotes from past fares and can be haggled with, but it never goes below its own hidden lowest price. Once agreed, a driver is matched.
 
@@ -49,7 +49,7 @@ On the live site:
 - Who pays for the AI: before the test my DeepSpace account showed 11 AI calls ($0.0041). I signed in as a different account, priced a request (the details said "Priced by the model", so a real call ran), negotiated, sent the job, and the simulated driver accepted and finished it. Afterwards my account still showed exactly 11 calls, so that call was billed to the other account.
 - Using the app turned up two bugs, both fixed. One was a record read one level too shallow ("Unknown zone: undefined"). The other was a job accepted before the countdown existed that locked the driver screen for good.
 
-152 automated tests cover the rest, and I haven't re-checked these by hand: the role permissions (run against the SDK's real permission check), the fare rule against a model made to lie, the negotiation limits, and the one-job-at-a-time rules. The customer screen, Hide, the request queue note and "Receive a new request" have only been tested this way and not yet tried on the live site.
+160 automated tests cover the rest, and I haven't re-checked these by hand: the role permissions (run against the SDK's real permission check), the fare rule against a model made to lie, the negotiation limits, and the one-job-at-a-time and only-one-driver rules. The customer screen, Hide, the request queue note and "Receive a new request" have only been tested this way and not yet tried on the live site.
 
 ## What I left out
 

@@ -6,6 +6,7 @@ import {
   jobDurationMs,
   jobPhase,
   remainingMs,
+  resolveAcceptance,
   sendBlockReason,
   buildOffer,
   demoJobsFor,
@@ -176,5 +177,69 @@ describe('sendBlockReason', () => {
   it('locks the request as soon as any driver has accepted, even if others declined', () => {
     expect(sendBlockReason([{ status: 'accepted' }])).toMatch(/accepted/)
     expect(sendBlockReason([{ status: 'declined' }, { status: 'accepted' }])).not.toBeNull()
+  })
+})
+
+describe('a withdrawn or taken offer is closed', () => {
+  it('is neither pending nor in progress, so it can never be accepted or lock a driver', () => {
+    for (const status of ['withdrawn', 'taken']) {
+      expect(jobPhase({ status, etaMin: 3 }, 1_000_000)).toBe('closed')
+      expect(activeJob([{ status, etaMin: 3, acceptedAt: 1_000_000 }], 1_000_001)).toBeNull()
+    }
+  })
+})
+
+describe('only one driver gets the job', () => {
+  const offer = (id: string, status: string, acceptedAt?: number) => ({ id, status, acceptedAt })
+
+  it('with a single acceptance, that driver wins and the still-waiting offers are withdrawn', () => {
+    const r = resolveAcceptance([offer('a', 'accepted', 100), offer('b', 'pending'), offer('c', 'declined')])
+    expect(r).toEqual({ winner: 'a', demote: [], withdraw: ['b'] })
+  })
+
+  it('when several accept, the earliest wins and the rest are taken', () => {
+    const r = resolveAcceptance([offer('a', 'accepted', 300), offer('b', 'accepted', 100), offer('c', 'accepted', 200)])
+    expect(r.winner).toBe('b')
+    expect([...r.demote].sort()).toEqual(['a', 'c'])
+  })
+
+  it('a tie in time is broken by id, so the answer never depends on the order asked', () => {
+    const forward = resolveAcceptance([offer('x', 'accepted', 100), offer('y', 'accepted', 100)])
+    const reversed = resolveAcceptance([offer('y', 'accepted', 100), offer('x', 'accepted', 100)])
+    expect(forward.winner).toBe('x')
+    expect(reversed.winner).toBe('x')
+  })
+
+  it('with nobody accepted there is no winner, and nothing is withdrawn', () => {
+    expect(resolveAcceptance([offer('a', 'pending'), offer('b', 'declined')])).toEqual({
+      winner: null,
+      demote: [],
+      withdraw: [],
+    })
+    expect(resolveAcceptance([])).toEqual({ winner: null, demote: [], withdraw: [] })
+  })
+
+  it('settles to exactly one accepted offer however many accept, in any order', () => {
+    const base = [offer('a', 'accepted', 5), offer('b', 'accepted', 3), offer('c', 'accepted', 9), offer('d', 'pending')]
+    for (const order of [base, [...base].reverse(), [base[2], base[0], base[3], base[1]]]) {
+      const r = resolveAcceptance(order)
+      const after = order.map((o) =>
+        r.demote.includes(o.id) ? { ...o, status: 'taken' } : r.withdraw.includes(o.id) ? { ...o, status: 'withdrawn' } : o,
+      )
+      expect(after.filter((o) => o.status === 'accepted').map((o) => o.id)).toEqual(['b'])
+    }
+  })
+
+  it('is idempotent: running it again on the settled state changes nothing', () => {
+    const first = resolveAcceptance([offer('a', 'accepted', 5), offer('b', 'accepted', 3), offer('c', 'pending')])
+    const settled = [offer('a', 'taken', 5), offer('b', 'accepted', 3), offer('c', 'withdrawn')]
+    expect(resolveAcceptance(settled)).toEqual({ winner: 'b', demote: [], withdraw: [] })
+    expect(first.winner).toBe('b')
+  })
+
+  it('a late acceptance (a laggard) loses to an earlier one already settled', () => {
+    const r = resolveAcceptance([offer('early', 'accepted', 100), offer('late', 'accepted', 900)])
+    expect(r.winner).toBe('early')
+    expect(r.demote).toEqual(['late'])
   })
 })
