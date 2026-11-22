@@ -164,7 +164,6 @@ Not verified: the second account's own balance; that it cannot SEE the owner's
 requests (permission-tested only); a real `viewer` (driver) account.
 
 Not built, and explained in WRITEUP.md: cron, email/push, map, chat, payments,
-real two-sided matching, customer accounts, recurring contracts (rules drafted
-in the untracked `src/contracts/`, unused).
+real two-sided matching, customer accounts, recurring contracts.
 
 Windows note: run vitest from a shell whose path starts with an uppercase `C:`.

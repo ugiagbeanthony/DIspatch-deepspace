@@ -50,7 +50,7 @@ Covered by **106 automated tests, not re-checked by hand**: the role permissions
 
 - **Real two-sided matching and customer accounts:** needs several real people at once. A natural next step is customers sending their own requests for a dispatcher to price.
 - **Payments:** no payout support on the platform (see above).
-- **Recurring contracts and cancellation fees:** a good idea, and I wrote the rules, but did not ship them in the time available.
+- **Recurring contracts and cancellation fees:** a good idea (a regular customer with the same trip every day), but not built in the time available.
 - **Scheduled jobs (cron), email and push notifications, a map, chat:** cut for time. Notifications are in-app only.
 - **A third "customer" role:** DeepSpace has three roles, so drivers use `viewer`; a customer role would need a profile field instead.
 
