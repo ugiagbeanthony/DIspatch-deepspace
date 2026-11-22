@@ -15,6 +15,7 @@ import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
 import { APP_NAME } from '../constants'
 import type { Role } from '../constants'
 import { nav } from '../nav'
+import { NotificationBell } from './NotificationBell'
 import { cn } from '../lib/utils'
 import {
   Avatar,
@@ -78,6 +79,8 @@ export default function Navigation() {
           <div className="hidden items-center md:flex">{visibleNav.map(navLink)}</div>
 
           <div className="flex-1" />
+
+          {isSignedIn && profileReady && <NotificationBell />}
 
           {!isLoaded ? null : isSignedIn && !profileReady ? (
             /* Signed in, profile still loading — skeleton pill, never the

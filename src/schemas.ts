@@ -16,6 +16,7 @@ import {
   requestsSchema,
   faresSchema,
   fareHistorySchema,
+  notificationsSchema,
 } from './schemas/dispatch-schema'
 
 export const schemas: CollectionSchema[] = [
@@ -26,4 +27,5 @@ export const schemas: CollectionSchema[] = [
   requestsSchema,
   faresSchema,
   fareHistorySchema,
+  notificationsSchema,
 ]
