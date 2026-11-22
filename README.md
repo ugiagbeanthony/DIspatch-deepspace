@@ -16,7 +16,7 @@ Sign in with any account. You land as a **dispatcher**; the demo data is already
 3. **Negotiate:** under **Price negotiation** you see *Customer proposed*, *AI suggests* and *Agreed*. Click **Quote AI price**: the simulated customer counters. Accept the counter, counter back, or **Reject job**. Quote far too high three times and the customer cancels.
 4. **Send the job:** once a price is agreed, **Closest free drivers** unlocks, ranked with reasons. Click **Send job**, then **Simulate driver reply**. You get a notification. Once a driver accepts, the job is locked.
 5. **Driver screen:** open **Driver** in the top bar and click **Get demo jobs**. You see what a driver sees: price, distance, minutes to pickup, accept or reject. Accept one: a countdown starts (10 seconds per trip-minute) and the others lock until it ends.
-6. **Compare:** the chart at the bottom shows customer-proposed vs AI vs agreed for every request.
+6. **Agreement charts:** the section at the bottom shows the three most recent agreements, each with the customer's offer, the AI's suggestion and the agreed price side by side. Click **Show all** to see the rest.
 
 If the counts read zero, the owner must click **Seed demo data** (owner only).
 
