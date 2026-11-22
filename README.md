@@ -14,7 +14,7 @@ Sign in with any account. You land as a **dispatcher** with a **private workspac
 0. **Your demo requests:** a new account gets its own copy of six demo requests automatically on first visit (or add your own with the form). They are yours alone.
 
 1. **Console:** your requests, plus the shared fleet and fare history.
-2. **Price:** click **Price** on a request. It uses the AI model and is billed to *your* DeepSpace credits (roughly a tenth of a cent). Click the dollar amount to open the price details: factor rows and "Rows add up to the total ✓".
+2. **Price:** the console lists your three most recent requests (**See all** opens the rest). Click **Price** on one. It uses the AI model and is billed to *your* DeepSpace credits (roughly a tenth of a cent). Open the **Details** dropdown to see the factor rows and "Rows add up to the total ✓".
 3. **Negotiate:** under **Price negotiation** you see *Customer proposed*, *AI suggests* and *Agreed*. Click **Quote AI price**: the simulated customer counters. Accept the counter, counter back, or **Reject job**. Quote far too high three times and the customer cancels.
 4. **Send the job:** once a price is agreed, **Closest free drivers** unlocks, ranked with reasons. Click **Send job**, then **Simulate driver reply**. You get a notification. Once a driver accepts, the job is locked.
 5. **Driver screen:** open **Driver** in the top bar and click **Get demo jobs**. You see what a driver sees: price, distance, minutes to pickup, accept or reject. Accept one: a countdown starts (10 seconds per trip-minute) and the others lock until it ends.

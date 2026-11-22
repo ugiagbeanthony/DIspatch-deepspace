@@ -10,6 +10,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useQuery } from 'deepspace'
 import { useMine } from '../lib/use-mine'
 import { Button } from '@/components/ui'
@@ -100,7 +102,10 @@ const STATUS_LABEL: Record<string, string> = {
   declined: 'Declined',
 }
 
-export function RequestsPanel() {
+/** How many requests the console previews before linking to the full list. */
+export const PREVIEW_COUNT = 3
+
+export function RequestList({ limit }: { limit?: number }) {
   // Your own work only; the fleet is shared.
   const requests = useMine<RequestData>('requests')
   const fares = useMine<FareData>('fares')
@@ -148,7 +153,12 @@ export function RequestsPanel() {
     )
   }
 
-  const rows = [...requests.records].sort((a, b) => a.recordId.localeCompare(b.recordId))
+  // Newest first (ties keep a stable order). The console shows only the latest few.
+  const when = (iso: string) => Date.parse(iso) || 0
+  const rows = [...requests.records].sort(
+    (a, b) => when(b.createdAt) - when(a.createdAt) || a.recordId.localeCompare(b.recordId),
+  )
+  const shown = limit === undefined ? rows : rows.slice(0, limit)
 
   // A new dispatcher starts with their own copy of the demo requests, with no
   // click needed. The action skips any that already exist, so this is safe, and
@@ -165,11 +175,7 @@ export function RequestsPanel() {
   }, [requests.status, rows.length])
 
   return (
-    <section data-testid="requests-panel" className="mt-8">
-      <h2 className="text-lg font-semibold">Requests</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Pricing uses the AI model and is billed to your own DeepSpace credits (about a tenth of a cent each).
-      </p>
+    <div data-testid="request-list">
       {requests.status === 'ready' && rows.length === 0 && (
         <div data-testid="no-requests" className="mt-3 rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">
@@ -187,7 +193,7 @@ export function RequestsPanel() {
       {errors['_'] && <p className="mt-2 text-sm text-red-400">{errors['_']}</p>}
 
       <ul className="mt-3 space-y-3">
-        {rows.map((r) => {
+        {shown.map((r) => {
           const fareRec = fareFor(r.recordId)
           const fare = fareRec?.data
           const factors = fare ? parseFactors(fare.factors) : []
@@ -228,25 +234,31 @@ export function RequestsPanel() {
                 </div>
 
                 {fare && (
-                  <button
-                    className="text-left underline-offset-4 hover:underline"
-                    onClick={() => setOpen(isOpen ? null : r.recordId)}
-                    aria-expanded={isOpen}
-                  >
+                  <div className="text-left">
                     <span data-testid={`fare-${r.recordId}`} className="text-lg font-semibold">
                       {usd(fare.finalCents)}
                     </span>
                     <span className="ml-2 text-xs text-muted-foreground">{agreed ? 'agreed' : 'AI suggestion'}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{isOpen ? 'hide price details' : 'price details'}</span>
-                  </button>
+                  </div>
                 )}
 
                 <Button
-                  onClick={() => run(r.recordId, 'price', { requestId: r.recordId }, () => setOpen(r.recordId))}
+                  onClick={() => run(r.recordId, 'price', { requestId: r.recordId })}
                   disabled={busy !== null || agreed || myOffers.length > 0}
                 >
                   {busy === `${r.recordId}:price` ? 'Pricing…' : fare ? 'Re-price' : 'Price'}
                 </Button>
+
+                {fare && (
+                  <Button
+                    variant="secondary"
+                    data-testid={`details-${r.recordId}`}
+                    aria-expanded={isOpen}
+                    onClick={() => setOpen(isOpen ? null : r.recordId)}
+                  >
+                    Details {isOpen ? <ChevronUp className="ml-1 h-4 w-4" aria-hidden /> : <ChevronDown className="ml-1 h-4 w-4" aria-hidden />}
+                  </Button>
+                )}
               </div>
 
               {errors[r.recordId] && (
@@ -474,6 +486,29 @@ export function RequestsPanel() {
           )
         })}
       </ul>
+      {limit !== undefined && rows.length > limit && (
+        <Link
+          to="/requests"
+          data-testid="requests-see-all"
+          className="mt-4 inline-block text-sm font-medium underline underline-offset-4"
+        >
+          See all {rows.length} requests &rarr;
+        </Link>
+      )}
+    </div>
+  )
+}
+
+export const PRICING_NOTE =
+  'Pricing uses the AI model and is billed to your own DeepSpace credits (about a tenth of a cent each).'
+
+/** The console section: the latest few requests, each with a Details dropdown. */
+export function RequestsPanel() {
+  return (
+    <section data-testid="requests-panel" className="mt-8">
+      <h2 className="text-lg font-semibold">Requests</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{PRICING_NOTE}</p>
+      <RequestList limit={PREVIEW_COUNT} />
     </section>
   )
 }
