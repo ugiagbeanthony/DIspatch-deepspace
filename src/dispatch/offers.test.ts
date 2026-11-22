@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   SIM_DISPATCHER,
+  SIM_MS_PER_MIN,
+  activeJob,
+  jobDurationMs,
+  jobPhase,
+  remainingMs,
+  sendBlockReason,
   buildOffer,
   demoJobsFor,
   etaMinutes,
@@ -111,5 +117,58 @@ describe('isSimulatedId', () => {
     expect(isSimulatedId(SIM_DISPATCHER)).toBe(true)
     expect(isSimulatedId('user_real')).toBe(false)
     expect(isSimulatedId(undefined)).toBe(false)
+  })
+})
+
+describe('one job at a time, on the demo clock', () => {
+  const T0 = 1_000_000
+  const job = (o: { status: string; etaMin: number; acceptedAt?: number; id?: string }) => o
+
+  it('compresses trip time: one minute of ETA is SIM_MS_PER_MIN of real time', () => {
+    expect(jobDurationMs(6)).toBe(6 * SIM_MS_PER_MIN)
+  })
+
+  it('walks pending -> in-progress -> done as the clock advances', () => {
+    expect(jobPhase(job({ status: 'pending', etaMin: 3 }), T0)).toBe('pending')
+    const accepted = job({ status: 'accepted', etaMin: 3, acceptedAt: T0 })
+    expect(jobPhase(accepted, T0)).toBe('in-progress')
+    expect(jobPhase(accepted, T0 + jobDurationMs(3) - 1)).toBe('in-progress')
+    expect(jobPhase(accepted, T0 + jobDurationMs(3))).toBe('done')
+  })
+
+  it('a declined job is declined, never in progress', () => {
+    expect(jobPhase(job({ status: 'declined', etaMin: 3, acceptedAt: T0 }), T0)).toBe('declined')
+  })
+
+  it('reports time left, then zero once done', () => {
+    const a = job({ status: 'accepted', etaMin: 2, acceptedAt: T0 })
+    expect(remainingMs(a, T0 + 1000)).toBe(jobDurationMs(2) - 1000)
+    expect(remainingMs(a, T0 + jobDurationMs(2) + 5)).toBe(0)
+    expect(remainingMs(job({ status: 'pending', etaMin: 2 }), T0)).toBe(0)
+  })
+
+  it('finds the job a driver is mid-way through, and none once it is finished', () => {
+    const a = job({ id: 'a', status: 'accepted', etaMin: 3, acceptedAt: T0 })
+    const b = job({ id: 'b', status: 'pending', etaMin: 2 })
+    expect(activeJob([b, a], T0 + 1)).toBe(a)
+    expect(activeJob([b, a], T0 + jobDurationMs(3))).toBeNull()
+    expect(activeJob([b], T0)).toBeNull()
+  })
+
+  it('a fresh offer starts with no acceptance time', () => {
+    expect(buildOffer(base).acceptedAt).toBe(0)
+  })
+})
+
+describe('sendBlockReason', () => {
+  it('allows sending when nothing is accepted: none sent, pending, or declined', () => {
+    expect(sendBlockReason([])).toBeNull()
+    expect(sendBlockReason([{ status: 'pending' }])).toBeNull()
+    expect(sendBlockReason([{ status: 'declined' }, { status: 'pending' }])).toBeNull()
+  })
+
+  it('locks the request as soon as any driver has accepted, even if others declined', () => {
+    expect(sendBlockReason([{ status: 'accepted' }])).toMatch(/accepted/)
+    expect(sendBlockReason([{ status: 'declined' }, { status: 'accepted' }])).not.toBeNull()
   })
 })

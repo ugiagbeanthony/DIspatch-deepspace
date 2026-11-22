@@ -9,12 +9,12 @@
  * rows on their own, an independent look at the invariant the server enforced.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutations, useQuery } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '../lib/call-action'
 import { rankDrivers, type DriverLite } from '../matching/rank'
-import { usd } from '../dispatch/offers'
+import { jobPhase, sendBlockReason, usd } from '../dispatch/offers'
 import { validateAdjustment } from '../dispatch/variance'
 
 interface RequestData {
@@ -51,6 +51,7 @@ interface DriverData {
 }
 
 interface OfferData {
+  acceptedAt?: number
   driverId: string
   requestId: string
   fareCents: number
@@ -89,6 +90,12 @@ export function RequestsPanel() {
   const drivers = useQuery<DriverData>('drivers')
   const offers = useQuery<OfferData>('offers')
   const fareWrites = useMutations<Partial<FareData>>('fares')
+
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   const [open, setOpen] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -153,6 +160,7 @@ export function RequestsPanel() {
           const adds = fare ? sum === fare.modelTotalCents : false
           const isOpen = open === r.recordId
           const myOffers = offers.records.filter((o) => o.data.requestId === r.recordId)
+          const blocked = sendBlockReason(myOffers.map((o) => o.data))
           const ranked = fare
             ? rankDrivers({ lat: r.data.originLat, lng: r.data.originLng }, fleet).slice(0, 3)
             : []
@@ -189,6 +197,7 @@ export function RequestsPanel() {
                     {fare.overridden === 1 && (
                       <span className="ml-2 text-xs text-muted-foreground">adjusted from {usd(fare.modelTotalCents)}</span>
                     )}
+                    <span className="ml-2 text-xs text-muted-foreground">{isOpen ? 'hide price details' : 'price details'}</span>
                   </button>
                 )}
 
@@ -270,6 +279,11 @@ export function RequestsPanel() {
                   {/* Match a driver */}
                   <h3 className="mt-5 font-semibold">Closest free drivers</h3>
                   {ranked.length === 0 && <p className="mt-1 text-muted-foreground">No free drivers.</p>}
+                  {blocked && (
+                    <p data-testid={`send-locked-${r.recordId}`} className="mt-1 text-muted-foreground">
+                      {blocked}
+                    </p>
+                  )}
                   <ul className="mt-2 space-y-2">
                     {ranked.map((rk, i) => {
                       const sent = myOffers.some((o) => o.data.driverId === rk.driver.userId)
@@ -283,7 +297,7 @@ export function RequestsPanel() {
                           </div>
                           <Button
                             variant="secondary"
-                            disabled={busy !== null || sent}
+                            disabled={busy !== null || sent || blocked !== null}
                             onClick={() =>
                               run(r.recordId, 'send-offer', {
                                 requestId: r.recordId,
@@ -291,7 +305,7 @@ export function RequestsPanel() {
                               })
                             }
                           >
-                            {sent ? 'Sent' : busy === `${r.recordId}:send-offer` ? 'Sending…' : 'Send job'}
+                            {sent ? 'Sent' : blocked ? 'Locked' : busy === `${r.recordId}:send-offer` ? 'Sending…' : 'Send job'}
                           </Button>
                         </li>
                       )
@@ -308,7 +322,11 @@ export function RequestsPanel() {
                             <span className="flex-1">
                               {nameOf(o.data.driverId)} · {usd(o.data.fareCents)} ·{' '}
                               <span data-testid={`offer-status-${o.recordId}`} className="font-medium">
-                                {o.data.status}
+                                {o.data.status === 'accepted'
+                                  ? jobPhase(o.data, now) === 'done'
+                                    ? 'completed'
+                                    : 'accepted · on the way'
+                                  : o.data.status}
                               </span>
                             </span>
                             {o.data.status === 'pending' && o.data.driverId.startsWith('seed_') && (

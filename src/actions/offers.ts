@@ -11,12 +11,15 @@
 import type { ActionHandler } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import {
+  activeJob,
   buildOffer,
   demoJobsFor,
   distanceKm,
   isSimulatedId,
   newOfferNotice,
+  remainingMs,
   replyNotice,
+  sendBlockReason,
   simulatedReply,
 } from '../dispatch/offers'
 import { fail, getFields, isDispatcher, notify, ok, roleOf, str } from './common'
@@ -31,6 +34,13 @@ export const sendOffer: ActionHandler<Env> = async ({ userId, params, tools, env
   if (!req) return fail('Request not found')
   const fare = await getFields(tools, 'fares', `fare-${requestId}`)
   if (!fare || typeof fare.finalCents !== 'number') return fail('Price the request first')
+
+  // Once any driver has accepted this request it is taken: no further sending.
+  const existing = await tools.query('offers', { where: { requestId }, limit: 50 })
+  if (existing.success) {
+    const blocked = sendBlockReason(existing.data.records.map((r) => r.data as { status: string }))
+    if (blocked) return fail(blocked)
+  }
 
   const found = await tools.query('drivers', { where: { userId: driverUserId }, limit: 1 })
   const driver = found.success ? (found.data.records[0]?.data as Record<string, unknown> | undefined) : undefined
@@ -74,7 +84,25 @@ export const respondOffer: ActionHandler<Env> = async ({ userId, params, tools }
   if (offer.driverId !== userId) return fail('That job is not yours')
   if (offer.status !== 'pending') return fail(`Job is already ${String(offer.status)}`)
 
-  const upd = await tools.update('offers', offerId, { status })
+  // One job at a time: a driver who is mid-job cannot accept another until the
+  // demo clock says it is finished. Enforced here, not just by disabled buttons.
+  const now = Date.now()
+  if (status === 'accepted') {
+    const mine = await tools.query('offers', { where: { driverId: userId, status: 'accepted' }, limit: 50 })
+    if (mine.success) {
+      const current = activeJob(
+        mine.data.records.map((r) => ({ id: r.recordId, ...(r.data as { etaMin: number; acceptedAt?: number; status: string }) })),
+        now,
+      )
+      if (current) {
+        const secs = Math.ceil(remainingMs(current, now) / 1000)
+        return fail(`Finish your current job first (${secs}s left).`)
+      }
+    }
+  }
+
+  const patch: Record<string, unknown> = status === 'accepted' ? { status, acceptedAt: now } : { status }
+  const upd = await tools.update('offers', offerId, patch)
   if (!upd.success) return fail(`Could not save answer: ${upd.error}`)
 
   const me = await getFields(tools, 'users', userId)
@@ -98,7 +126,8 @@ export const simulateReply: ActionHandler<Env> = async ({ userId, params, tools,
   if (offer.status !== 'pending') return fail(`Job is already ${String(offer.status)}`)
 
   const status = simulatedReply(driverId, offerId)
-  const upd = await tools.update('offers', offerId, { status })
+  const patch: Record<string, unknown> = status === 'accepted' ? { status, acceptedAt: Date.now() } : { status }
+  const upd = await tools.update('offers', offerId, patch)
   if (!upd.success) return fail(`Could not save answer: ${upd.error}`)
 
   const found = await tools.query('drivers', { where: { userId: driverId }, limit: 1 })

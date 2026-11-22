@@ -35,6 +35,8 @@ export const offersSchema: CollectionSchema = {
     { name: 'status', storage: 'text', interpretation: 'plain', maxLength: 24 },
     /** 1 when the driver and/or dispatcher on this job are simulated. */
     { name: 'simulated', storage: 'number', interpretation: 'plain' },
+    /** Epoch ms the driver accepted; 0 until then. Drives the demo-time countdown. */
+    { name: 'acceptedAt', storage: 'number', interpretation: 'plain' },
   ],
   permissions: {
     // Nobody signed out, and no role we don't name, sees an offer.
