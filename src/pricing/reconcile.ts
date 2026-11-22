@@ -180,6 +180,11 @@ export function fallbackFactors(digest: Digest, req: PriceRequestInput): Factor[
   return factors
 }
 
+/** The history-based price for a trip, with no model involved. */
+export function estimateCents(digest: Digest, req: PriceRequestInput): number {
+  return sumFactors(fallbackFactors(digest, req))
+}
+
 export function buildPrompt(req: PriceRequestInput, digest: Digest, feedback?: string): string {
   const base = Math.round(baseMedian(digest, req.origin, req.destination))
   const hourMult = digest.hourlyMultiplier[req.hour] ?? 1

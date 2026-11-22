@@ -17,6 +17,7 @@ import {
   negotiationsSchema,
   notificationsSchema,
   requestsSchema,
+  tripsSchema,
 } from '../schemas/dispatch-schema'
 
 const OWNER = 'user_owner'
@@ -171,5 +172,27 @@ describe('negotiations: written only by the server action', () => {
   it('a driver and a signed-out visitor see none', () => {
     expect(canRead(negotiationsSchema, 'viewer', rec(), DRIVER_A)).toBe(false)
     expect(canRead(negotiationsSchema, '*', rec(), 'anon')).toBe(false)
+  })
+})
+
+describe('trips: a customer\u2019s rides are private to them, whatever their role', () => {
+  const myTrip = rec({ customerId: DRIVER_A, origin: 'Downtown', status: 'quoted' })
+
+  it('the customer reads their own trip, in either role', () => {
+    expect(canRead(tripsSchema, 'member', rec({ customerId: DISPATCHER }), DISPATCHER)).toBe(true)
+    expect(canRead(tripsSchema, 'viewer', myTrip, DRIVER_A)).toBe(true)
+  })
+
+  it('nobody else reads it, including a dispatcher', () => {
+    expect(canRead(tripsSchema, 'viewer', myTrip, DRIVER_B)).toBe(false)
+    expect(canRead(tripsSchema, 'member', myTrip, DISPATCHER)).toBe(false)
+    expect(canRead(tripsSchema, '*', myTrip, 'anon')).toBe(false)
+  })
+
+  it('no client writes a trip: the simulated dispatcher runs on the server', () => {
+    for (const role of ['viewer', 'member'] as const) {
+      expect(canCreate(tripsSchema, role)).toBe(false)
+      expect(canUpdate(tripsSchema, role, myTrip, DRIVER_A)).toBe(false)
+    }
   })
 })

@@ -169,3 +169,40 @@ export const negotiationsSchema: CollectionSchema = {
     admin: { read: true, create: true, update: true, delete: true },
   },
 }
+
+/**
+ * A customer's ride request and its price negotiation with the SIMULATED
+ * dispatcher. `customerId` is the owner, so a person reads only their own trips,
+ * whatever their role. Written only by the trip actions, which run the
+ * simulated dispatcher server-side; its hidden lowest price is never stored.
+ */
+export const tripsSchema: CollectionSchema = {
+  name: 'trips',
+  ownerField: 'customerId',
+  columns: [
+    { name: 'customerId', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'origin', storage: 'text', interpretation: 'plain', maxLength: 80 },
+    { name: 'destination', storage: 'text', interpretation: 'plain', maxLength: 80 },
+    { name: 'originLat', storage: 'number', interpretation: 'plain' },
+    { name: 'originLng', storage: 'number', interpretation: 'plain' },
+    { name: 'hour', storage: 'number', interpretation: 'plain' },
+    { name: 'weather', storage: 'text', interpretation: 'plain', maxLength: 24 },
+    { name: 'offerCents', storage: 'number', interpretation: 'plain' },
+    { name: 'quoteCents', storage: 'number', interpretation: 'plain' },
+    { name: 'round', storage: 'number', interpretation: 'plain' },
+    { name: 'final', storage: 'number', interpretation: 'plain' },
+    /** quoted | agreed | cancelled */
+    { name: 'status', storage: 'text', interpretation: 'plain', maxLength: 16 },
+    { name: 'agreedCents', storage: 'number', interpretation: 'plain' },
+    { name: 'driverName', storage: 'text', interpretation: 'plain', maxLength: 80 },
+    { name: 'etaMin', storage: 'number', interpretation: 'plain' },
+    /** JSON text: [{from, cents, note}] */
+    { name: 'log', storage: 'text', interpretation: 'plain', maxLength: 3000 },
+  ],
+  permissions: {
+    '*': none,
+    viewer: { read: 'own', create: false, update: false, delete: false },
+    member: { read: 'own', create: false, update: false, delete: false },
+    admin: { read: true, create: true, update: true, delete: true },
+  },
+}

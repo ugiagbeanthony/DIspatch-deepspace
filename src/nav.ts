@@ -18,6 +18,7 @@ export interface NavItem {
 export const nav: NavItem[] = [
   // Dispatchers (member) and the owner (admin); drivers (viewer) never see the console.
   { path: '/home', label: 'Console', roles: ['member', 'admin'] },
+  { path: '/customer', label: 'Customer' },
   { path: '/driver', label: 'Driver' },
   { path: '/settings', label: 'Settings' },
   // The /api-status debug page still exists — add

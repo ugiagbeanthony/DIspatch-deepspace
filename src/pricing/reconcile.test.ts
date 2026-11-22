@@ -4,6 +4,7 @@ import {
   assertReconciles,
   baseMedian,
   boundsFor,
+  estimateCents,
   fallbackFactors,
   parseModelOutput,
   priceRequest,
@@ -166,5 +167,14 @@ describe('fallback', () => {
         expect(total).toBeLessThanOrEqual(b.ceiling)
       }
     }
+  })
+})
+
+describe('estimateCents', () => {
+  it('is the history-based price, inside the allowed range', () => {
+    const e = estimateCents(digest, req)
+    expect(e).toBe(sumFactors(fallbackFactors(digest, req)))
+    expect(e).toBeGreaterThanOrEqual(bounds.floor)
+    expect(e).toBeLessThanOrEqual(bounds.ceiling)
   })
 })

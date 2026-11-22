@@ -166,4 +166,11 @@ requests (permission-tested only); a real `viewer` (driver) account.
 Not built, and explained in WRITEUP.md: cron, email/push, map, chat, payments,
 real two-sided matching, customer accounts, recurring contracts.
 
+Later that evening: app renamed Curbline (display only; address and app id stay
+`dispatch`); Hide/Unhide requests (a flag, blocked while negotiating or a job is in
+play); customer screen (`/customer`, `trips` collection, `trip-request` and
+`trip-move` actions, simulated dispatcher with a hidden floor); explanatory
+paragraphs removed from the UI (they live in the README). 138 tests.
+Not tried by hand yet: customer screen, Hide.
+
 Windows note: run vitest from a shell whose path starts with an uppercase `C:`.
