@@ -156,8 +156,12 @@ Verified by hand on the live site: seeding (and re-seeding without duplicates),
 real-model pricing, driver screen accept/countdown/lock, notification bell.
 Covered only by automated tests: role permissions, reconcile rejections,
 negotiation limits, one-job-at-a-time and locked-after-accept.
-Not verified: billing to a *second* account's credits; a real `viewer` (driver)
-account; two dispatchers at once.
+Verified with a second account (21 Nov, evening): it got its own auto-created demo
+requests, priced one with the real model ("Priced by the model"), negotiated,
+sent a job, and the simulated driver accepted and completed it, while the
+owner's usage stayed at 11 calls / $0.0041, i.e. billed to the caller.
+Not verified: the second account's own balance; that it cannot SEE the owner's
+requests (permission-tested only); a real `viewer` (driver) account.
 
 Not built, and explained in WRITEUP.md: cron, email/push, map, chat, payments,
 real two-sided matching, customer accounts, recurring contracts (rules drafted

@@ -39,11 +39,12 @@ On the live site:
 - Seeding the shared demo data produced 20 drivers and 140 fare-history rows, all marked synthetic. Running it again left the counts unchanged.
 - Pricing a request with the real model worked and produced a fare that appears in the chart.
 - On the driver screen, accepting a job started a countdown and locked the other jobs until it finished. The notification bell updated.
+- **Who pays, checked with a second account.** Before the test my DeepSpace account showed 11 AI calls ($0.0041). I signed in as a different dispatcher, got that account's own demo requests, and priced one: the price details read "Priced by the model", so a real model call ran. Then I negotiated, sent the job, and the simulated driver accepted and completed it. Afterwards my account still showed exactly 11 calls, so the call was billed to the second account, not to me.
 - Using the app found two real bugs, both fixed: the pricing job read a record one level too shallow and failed with "Unknown zone: undefined", and a job accepted before the countdown existed locked the driver screen permanently.
 
 Covered by **106 automated tests, not re-checked by hand**: the role permissions run against the SDK's real permission check (driver B cannot read driver A's offer; a driver cannot read requests or edit a price); the fare reconcile rule against a deliberately lying model (wrong arithmetic, junk text, decimals, out-of-range totals, a crash); the negotiation limits; and the one-job-at-a-time and locked-after-accept rules.
 
-**Not verified live:** that pricing bills the *dispatcher's* credits rather than mine, and that a second dispatcher's account really sees none of my requests. Both need a second account; both are enforced in code and covered by tests. Likewise I did not sign in as a driver (`viewer`) account.
+**Not verified live:** that a second dispatcher cannot see *my* requests (enforced by the permission rules and covered by tests, but I did not look for them from the second account), and I did not sign in as a driver (`viewer`) account. I also could not read the second account's own credit balance, only that mine did not move.
 
 ## What I left out, and why
 
