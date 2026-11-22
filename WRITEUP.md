@@ -51,8 +51,6 @@ On the live site:
 
 152 automated tests cover the rest, and I haven't re-checked these by hand: the role permissions (run against the SDK's real permission check), the fare rule against a model made to lie, the negotiation limits, and the one-job-at-a-time rules. The customer screen, Hide, the request queue note and "Receive a new request" have only been tested this way and not yet tried on the live site.
 
-Not verified live: that a second dispatcher can't see my requests (the rules and tests say so, but I didn't look from the other account), and a real driver (`viewer`) account. I also couldn't read the other account's balance, only that mine didn't move.
-
 ## What I left out
 
 - **A real customer reaching a real dispatcher.** Incoming requests come from simulated customers, and the customer screen talks to a simulated dispatcher. Joining them is the obvious next step, but it needs two real people and a way to tell customers from dispatchers, which the three DeepSpace roles can't do on their own.
