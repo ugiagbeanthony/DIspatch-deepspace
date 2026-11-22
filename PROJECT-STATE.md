@@ -34,11 +34,12 @@ or client material.
    **user id**, because `read: 'own'` resolves to
    `record.data[ownerField] === userId`. Display names live on `drivers`,
    keyed by the same user id.
-3. **Background jobs act as a named user.** `JobContext` has no record API.
-   Use `createUserToolExecutor(env, userId, ctx.signal)`, then
-   `records.query` / `records.create` / `records.update` / `records.delete`.
-   Every write is permission-checked as that user, so matching runs as the
-   dispatcher and can create offers no driver could.
+3. **Who does the work.** Only the demo-data seed is a background job (admin-only
+   queue; it acts as `job.enqueuedBy`, never a payload id, via
+   `createUserToolExecutor`). Pricing, negotiation, offers, replies and
+   notifications are **server actions** (`src/actions/`), which run with
+   per-record RBAC OFF, so each checks the caller's role and ownership by hand.
+   Pricing forwards the caller's token, so it bills the dispatcher's credits.
 4. **The model never produces the fare total.** It returns a factor breakdown
    (`{name, cents, why}` per row); code sums the factors, clamps to
    floor/ceiling, and **asserts the sum equals the total**, rejecting and
@@ -106,15 +107,17 @@ One actor is enough for the product (the dispatcher). Nothing in the assignment
 requires two people; two sessions only strengthen the offer-privacy proof, which
 the unit tests already cover. Increment 5's driver view is optional.
 
-## Reviewer access (decided)
+## Roles (decided, and built)
 
-The app owner is `admin`; anyone else who signs in is `member`. Decision:
-`drivers`, `requests`, `fares` and `fareHistory` are **member-readable,
-admin-write-only** (`src/schemas/dispatch-schema.ts`), so a reviewer in their
-own account sees a populated console. `offers` stays private per driver - console
-visibility never extends to it. Covered by tests in `src/spike/rbac.test.ts`.
-No role switcher. The privacy demo uses seeded driver sessions / the Playwright
-`users(2)` fixture.
+`admin` = owner (also a dispatcher, and the only one who can seed). `member` =
+**dispatcher**, the default for anyone who signs in, so a reviewer can use the
+app. `viewer` = **driver**: reads no console data, only offers addressed to them
+and their own notifications. Console collections are member-read; requests are
+member-create/update; fares are member-update (server creates); fleet and history
+are admin-write. Offers, notifications and negotiations are written only by
+server actions. The driver screen for a dispatcher is NOT a role switch: it
+filters to offers whose `driverId` is your own id; "Get demo jobs" creates three
+simulated jobs addressed to you.
 
 ## Honesty rules for the writeup
 
@@ -133,78 +136,28 @@ and the scaffold default does not apply. Set the remote *before* the first
 deploy — the source is latched from the checkout's remote at the first release,
 permanently.
 
-## The build plan
+## Where things stand (21 Nov 2026, evening)
 
-Ten increments, each ending in something visibly working. Do not start the next
-until the check passes.
+Live at https://dispatch.app.space; code at
+https://github.com/ugiagbeanthony/DIspatch-deepspace (source latched to GitHub,
+so use plain git + `npx deepspace deploy`, not DeepSpace push/pull).
 
-| # | Increment | Time | Check |
-|---|---|---|---|
-| 0 | Two-account spike | 30m | ✅ done — RBAC proven, 10/10 |
-| 1 | Live skeleton on `.app.space` | 40m | URL loads logged out, sign-in works |
-| 2 | Data model + seed | 40m | 6 requests, 20 drivers, no duplicate rows |
-| 3 | 🔒 Pricing job end-to-end | 85m | factors hand-add to the total; corrupted response rejected |
-| 4 | Matching job | 40m | nearest free driver ranks first; re-rank on move |
-| 5 | 🔒 Dispatch + driver view + RBAC | 55m | driver B sees one offer, driver C sees none |
-| 6 | 🔒 Override + variance chart | 40m | readable delta traceable to rows |
-| 7 | ✂️ Polish + demo script | 25m | 90-second walkthrough runs twice clean |
-| 8 | Writeup + README + capture | 40m | submission text complete |
-| 9 | 🔒 Ship | 25m | deployed URL verified logged in **and** out |
+Built and deployed: seed job; AI pricing with the reconcile assertion, billed to
+the caller; customer price on requests; negotiation with a simulated customer
+(hidden maximum, counters, cancels); matching with reasons; offers privately per
+driver; driver screen with accept/reject and a one-job-at-a-time demo clock
+(10 s per trip-minute); in-app notifications; three-way price chart; roles;
+README.md and WRITEUP.md. 106 automated tests.
 
-**Never cut:** 3, 5, 6, 9 — the reconcile assertion, the RBAC proof, the
-variance chart and the deploy are the submission. **Cut order** if time runs
-out: 7, then the map (list view instead), then chat.
+Verified by hand on the live site: seeding (and re-seeding without duplicates),
+real-model pricing, driver screen accept/countdown/lock, notification bell.
+Covered only by automated tests: role permissions, reconcile rejections,
+negotiation limits, one-job-at-a-time and locked-after-accept.
+Not verified: billing to a *second* account's credits; a real `viewer` (driver)
+account; two dispatchers at once.
 
-## Writeup skeleton
+Not built, and explained in WRITEUP.md: cron, email/push, map, chat, payments,
+real two-sided matching, customer accounts, recurring contracts (rules drafted
+in the untracked `src/contracts/`, unused).
 
-- **Built:** a dispatch console for a small independent fleet — matching with
-  reasons, explainable AI pricing, override capture, variance reporting.
-- **Integrations:** records with per-collection RBAC, durable background jobs,
-  cron, AI via the DeepSpace proxy.
-- **Main tradeoff:** dispatcher console instead of a consumer marketplace — one
-  actor, legible in one tab, at the cost of live two-sided matching. Payments
-  cut because the platform offers Checkout, not Connect payouts.
-- **Agent did:** scaffold, seed generator, scoring, factor pipeline, UI, chart.
-- **Verified by hand:** ranking picks a sensible driver; factors reconcile to
-  the total; driver B genuinely cannot see driver A's offer; and
-  *(only if the variance chart actually shows it)* the model's bias on a
-  condition such as rain, with the measured percentage.
-
-## Where things stand
-
-Increment 0 complete at API level: scaffold, `offers` schema, 10/10 RBAC
-assertions passing against the real predicate, `probe` job handler
-typechecking, `tsc --noEmit` clean.
-
-Since then: console schemas added (member-read / admin-write) with 5 more RBAC
-tests. Increment 1 code is done and verified locally: honest landing page
-(prerendered, loads logged out), `/home` console shell with sign-in prompt, role
-banner and live per-collection counts, real SEO text. `tsc`, eslint, 14/14
-tests and `vite build` all pass.
-
-**Deployed: https://dispatch.app.space** (21 Nov 2026). Source latched to GitHub
-`ugiagbeanthony/dispatch-deepspace`, permanently - so DeepSpace `push/pull/workspace`
-verbs refuse; ship with plain git + `npx deepspace deploy`.
-Verified in a real browser, logged out: landing 200, `/home` shows the sign-in
-prompt, the sign-in dialog opens (GitHub / Google / email), 0 console errors.
-**Not yet verified:** an actual signed-in session (needs a human login), and that
-a second account lands as read-only `member`.
-
-**Increment 2 deployed and verified on the live app** (21 Nov 2026): the
-dispatcher's "Seed demo data" button ran the `seed` job; counts read requests 6,
-drivers 20, fares 0, fareHistory 140, all flagged synthetic, status succeeded.
-*Pending a human re-click:* confirm a second seed leaves the counts unchanged
-(upsert by fixed record id; unit-tested, not yet seen live).
-
-Security fix made here: the job queue was open to any `member`, and the spike
-`probe` job trusted a payload `asUserId`, so a reviewer could have run a job as
-the dispatcher. The queue is now admin-only, `probe` is removed, and jobs act as
-`job.enqueuedBy` (never a payload id).
-
-The digest (pair medians, hourly multipliers, rain multiplier) is computed in
-code from `fareHistory` by `buildDigest` in `src/seed/generate.ts`, not stored.
-Ground truth rain multiplier in the generator is 1.12.
-
-**Next: increment 3 (pricing) - the product.** Load-bearing: model returns
-factor rows, code sums them and asserts sum == total, reject and retry once, log
-rejections.
+Windows note: run vitest from a shell whose path starts with an uppercase `C:`.
