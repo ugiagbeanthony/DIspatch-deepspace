@@ -35,8 +35,8 @@ export default function Landing() {
         </h1>
         <p className="mb-8 max-w-xl text-muted-foreground">
           A dispatcher console: ranked driver matches with reasons, AI fares broken
-          into factors that must add up to the total, and a record of every manual
-          override against what the model suggested.
+          into factors that must add up to the total, and price negotiation with
+          the customer.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link
