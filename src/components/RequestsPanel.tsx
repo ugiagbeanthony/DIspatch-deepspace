@@ -9,7 +9,7 @@
  * rows on their own, an independent look at the invariant the server enforced.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from 'deepspace'
 import { useMine } from '../lib/use-mine'
 import { Button } from '@/components/ui'
@@ -150,6 +150,20 @@ export function RequestsPanel() {
 
   const rows = [...requests.records].sort((a, b) => a.recordId.localeCompare(b.recordId))
 
+  // A new dispatcher starts with their own copy of the demo requests, with no
+  // click needed. The action skips any that already exist, so this is safe, and
+  // it is tried once per visit; the button below is the fallback if it fails.
+  const autoSeeded = useRef(false)
+  useEffect(() => {
+    if (requests.status !== 'ready' || rows.length > 0 || autoSeeded.current) return
+    autoSeeded.current = true
+    setBusy('_:demo-requests')
+    void callAction('demo-requests', {}).then((r) => {
+      setBusy(null)
+      if (!r.ok) setErrors((e) => ({ ...e, _: r.error }))
+    })
+  }, [requests.status, rows.length])
+
   return (
     <section data-testid="requests-panel" className="mt-8">
       <h2 className="text-lg font-semibold">Requests</h2>
@@ -159,7 +173,7 @@ export function RequestsPanel() {
       {requests.status === 'ready' && rows.length === 0 && (
         <div data-testid="no-requests" className="mt-3 rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">
-            You have no requests yet. Add one above, or start with the six demo requests (they are yours alone).
+            Setting up your demo requests… If nothing appears, add one above or use the button.
           </p>
           <Button
             className="mt-3"

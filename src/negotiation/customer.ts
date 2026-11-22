@@ -160,3 +160,16 @@ export function parseTurns(json: string | undefined): Turn[] {
     return []
   }
 }
+
+/** A taxi fare here is a few dollars to a few tens; anything past this is a typo. */
+export const MAX_CUSTOMER_PRICE_CENTS = 50_000
+
+/** Parse the price a customer offers, refusing absurd amounts. */
+export function parseCustomerPrice(text: string): { cents: number } | { error: string } {
+  const parsed = parseDollars(text)
+  if ('error' in parsed) return parsed
+  if (parsed.cents > MAX_CUSTOMER_PRICE_CENTS) {
+    return { error: `That is more than $${(MAX_CUSTOMER_PRICE_CENTS / 100).toFixed(0)}, which looks like a typo` }
+  }
+  return parsed
+}

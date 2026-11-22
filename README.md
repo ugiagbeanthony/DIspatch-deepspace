@@ -11,14 +11,14 @@ A dispatcher takes a phoned-in request, gets an AI fare suggestion whose factor 
 
 Sign in with any account. You land as a **dispatcher** with a **private workspace**: your requests, prices and negotiations are visible only to you. The shared fleet and fare history are already seeded.
 
-0. **Add demo requests:** on a fresh account click **Add demo requests** (or add your own with the form). You get your own copy of six demo requests.
+0. **Your demo requests:** a new account gets its own copy of six demo requests automatically on first visit (or add your own with the form). They are yours alone.
 
 1. **Console:** your requests, plus the shared fleet and fare history.
 2. **Price:** click **Price** on a request. It uses the AI model and is billed to *your* DeepSpace credits (roughly a tenth of a cent). Click the dollar amount to open the price details: factor rows and "Rows add up to the total ✓".
 3. **Negotiate:** under **Price negotiation** you see *Customer proposed*, *AI suggests* and *Agreed*. Click **Quote AI price**: the simulated customer counters. Accept the counter, counter back, or **Reject job**. Quote far too high three times and the customer cancels.
 4. **Send the job:** once a price is agreed, **Closest free drivers** unlocks, ranked with reasons. Click **Send job**, then **Simulate driver reply**. You get a notification. Once a driver accepts, the job is locked.
 5. **Driver screen:** open **Driver** in the top bar and click **Get demo jobs**. You see what a driver sees: price, distance, minutes to pickup, accept or reject. Accept one: a countdown starts (10 seconds per trip-minute) and the others lock until it ends.
-6. **Agreement charts:** the section at the bottom shows the three most recent agreements, each with the customer's offer, the AI's suggestion and the agreed price side by side. Click **Show all** to see the rest.
+6. **Agreement charts:** the section at the bottom previews your three most recent agreements, each with the customer's offer, the AI's suggestion and the agreed price side by side. Click anywhere on it to open the full list on its own page.
 
 If the shared counts (drivers, fare history) read zero, the owner must click **Seed demo data** (owner only).
 

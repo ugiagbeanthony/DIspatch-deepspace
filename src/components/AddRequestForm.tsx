@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { useMutations } from 'deepspace'
 import { Button } from '@/components/ui'
 import { ZONES } from '../seed/generate'
-import { parseDollars } from '../negotiation/customer'
+import { parseCustomerPrice } from '../negotiation/customer'
 
 const selectCls =
   'h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground'
@@ -30,7 +30,7 @@ export function AddRequestForm() {
       setError('Pickup and drop-off must be different')
       return
     }
-    const price = parseDollars(proposed)
+    const price = parseCustomerPrice(proposed)
     if ('error' in price) {
       setError(`Customer's price: ${price.error}`)
       return

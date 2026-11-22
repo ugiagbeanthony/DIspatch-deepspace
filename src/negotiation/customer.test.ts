@@ -5,6 +5,8 @@ import {
   dispatcherMove,
   isClosed,
   newNegotiation,
+  MAX_CUSTOMER_PRICE_CENTS,
+  parseCustomerPrice,
   parseDollars,
   type Negotiation,
 } from './customer'
@@ -123,5 +125,21 @@ describe('parseDollars', () => {
   })
   it('rejects junk, zero and extra decimals', () => {
     for (const bad of ['', 'abc', '0', '-3', '1.234', '1,50']) expect('error' in parseDollars(bad)).toBe(true)
+  })
+})
+
+describe('parseCustomerPrice', () => {
+  it('accepts a normal offer and the largest allowed one', () => {
+    expect(parseCustomerPrice('18.50')).toEqual({ cents: 1850 })
+    expect(parseCustomerPrice(String(MAX_CUSTOMER_PRICE_CENTS / 100))).toEqual({ cents: MAX_CUSTOMER_PRICE_CENTS })
+  })
+
+  it('refuses a typo-sized price (the $1,000,000,000 that broke the chart)', () => {
+    expect('error' in parseCustomerPrice('1000000000')).toBe(true)
+    expect('error' in parseCustomerPrice('501')).toBe(true)
+  })
+
+  it('still reports ordinary bad input', () => {
+    expect('error' in parseCustomerPrice('abc')).toBe(true)
   })
 })

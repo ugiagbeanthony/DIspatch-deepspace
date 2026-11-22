@@ -1,20 +1,20 @@
 /**
- * Agreement charts. For every request where a price was AGREED, three prices
- * side by side: what the customer PROPOSED, what the AI SUGGESTED, and what was
- * AGREED. Shows the three most recent; the rest sit behind "Show all".
+ * Agreement charts. For every request where a price was AGREED: what the
+ * customer OFFERED, what the AI SUGGESTED and what was AGREED, side by side.
  *
- * Only agreed deals appear: an unfinished negotiation has no agreed price yet,
- * so charting one would mislabel the AI's own number as an agreement. Also the
- * AI against the demo's hidden reference price. Numbers come from
- * dispatch/variance.ts (tested).
+ * The console shows a PREVIEW of the three most recent; clicking anywhere on it
+ * opens the full list on its own page (/agreements). Only agreed deals appear:
+ * an unfinished negotiation has no agreed price yet, so charting one would
+ * mislabel the AI's own number as an agreement. Only YOUR agreements appear.
+ * Numbers come from dispatch/variance.ts (tested).
  */
 
-import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMine } from '../lib/use-mine'
-import { summarize, type FareRow } from '../dispatch/variance'
+import { summarize, type FareRow, type VarianceSummary } from '../dispatch/variance'
 import { usd } from '../dispatch/offers'
 
-const RECENT = 3
+export const PREVIEW_COUNT = 3
 
 interface RequestData {
   origin: string
@@ -39,17 +39,15 @@ const stamp = (iso: string) => {
   return Number.isNaN(t) ? 0 : t
 }
 
-export function VariancePanel() {
-  // Your own agreements only.
+/** Your agreed deals, newest first, with their summary. */
+export function useAgreements(): { ready: boolean; summary: VarianceSummary } {
   const requests = useMine<RequestData>('requests')
   const fares = useMine<FareData>('fares')
   const negotiations = useMine<NegotiationData>('negotiations')
-  const [showAll, setShowAll] = useState(false)
 
   const reqById = new Map(requests.records.map((r) => [r.recordId, r.data]))
   const fareByReq = new Map(fares.records.map((f) => [f.data.requestId, f.data]))
 
-  // Agreed deals only, newest first.
   const rows: FareRow[] = negotiations.records
     .filter((n) => n.data.status === 'agreed')
     .sort((a, b) => stamp(b.updatedAt) - stamp(a.updatedAt))
@@ -71,7 +69,91 @@ export function VariancePanel() {
       ]
     })
 
-  if (rows.length === 0) {
+  return { ready: negotiations.status === 'ready', summary: summarize(rows) }
+}
+
+/** One labelled bar. Scaled within its own agreement so one odd number cannot flatten the rest. */
+function Bar({ label, cents, scale, cls, testId }: { label: string; cents?: number; scale: number; cls: string; testId: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-32 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="h-2 min-w-0 flex-1 rounded bg-muted">
+        <div className={`h-2 rounded ${cls}`} style={{ width: `${cents ? Math.min(100, (cents / scale) * 100) : 0}%` }} />
+      </div>
+      <span data-testid={testId} className="min-w-[4.5rem] shrink-0 whitespace-nowrap text-right text-xs tabular-nums">
+        {cents ? usd(cents) : '\u2014'}
+      </span>
+    </div>
+  )
+}
+
+export function AgreementRows({ rows }: { rows: VarianceSummary['rows'] }) {
+  return (
+    <ul
+      data-testid="agreement-list"
+      className="mt-4 space-y-4"
+      aria-label="Customer offer, AI suggestion and agreed price for each agreement"
+    >
+      {rows.map((r) => {
+        const scale = Math.max(1, r.proposedCents ?? 0, r.suggestedCents, r.finalCents)
+        return (
+          <li key={r.requestId} data-testid={`variance-${r.requestId}`} className="overflow-hidden text-sm">
+            <div className="flex flex-wrap justify-between gap-x-3">
+              <span className="font-medium">{r.label}</span>
+              <span className="tabular-nums text-muted-foreground">
+                agreed vs AI {signed(r.deltaPct)}
+                {r.finalVsProposedPct !== undefined && ` \u00b7 vs offer ${signed(r.finalVsProposedPct)}`}
+              </span>
+            </div>
+            <div className="mt-1 space-y-1">
+              <Bar label="Customer offered" cents={r.proposedCents} scale={scale} cls="bg-muted-foreground" testId={`bar-proposed-${r.requestId}`} />
+              <Bar label="AI suggested" cents={r.suggestedCents} scale={scale} cls="bg-primary" testId={`bar-ai-${r.requestId}`} />
+              <Bar label="Agreed" cents={r.finalCents} scale={scale} cls="bg-green-500" testId={`bar-final-${r.requestId}`} />
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+export function SummaryLine({ s }: { s: VarianceSummary }) {
+  const n = s.rows.length
+  return (
+    <p className="mt-1 text-sm text-muted-foreground">
+      {s.meanAiVsProposedPct === null
+        ? `${n} agreed ${n === 1 ? 'price' : 'prices'}.`
+        : `Across ${n} agreed ${n === 1 ? 'price' : 'prices'}, the AI suggests ${signed(s.meanAiVsProposedPct)} against what customers offer` +
+          (s.meanFinalVsProposedPct === null ? '.' : `, and you settle ${signed(s.meanFinalVsProposedPct)} from their offer.`)}
+    </p>
+  )
+}
+
+export function ReferenceNote({ s }: { s: VarianceSummary }) {
+  const rain = s.modelBias.byWeather.rain
+  const clear = s.modelBias.byWeather.clear
+  if (!s.modelBias.all) return null
+  return (
+    <div className="mt-5 border-t border-border pt-3 text-sm text-muted-foreground">
+      <p>
+        <span className="font-medium text-foreground">AI vs the demo&apos;s hidden reference price:</span>{' '}
+        {signed(s.modelBias.all.meanPct)} on average across {s.modelBias.all.count} fares
+        {rain && ` \u00b7 rain ${signed(rain.meanPct)} (${rain.count})`}
+        {clear && ` \u00b7 clear ${signed(clear.meanPct)} (${clear.count})`}.
+      </p>
+      <p className="mt-1">
+        The reference exists only because the demo data is synthetic. With few fares these numbers are noisy, not a
+        finding.
+      </p>
+    </div>
+  )
+}
+
+/** The console preview: the latest few, and the whole area opens the full page. */
+export function VariancePanel() {
+  const { summary: s } = useAgreements()
+
+  if (s.rows.length === 0) {
     return (
       <section data-testid="variance-panel" className="mt-8 rounded-lg border border-border bg-card p-4">
         <h2 className="text-sm font-semibold">Agreement charts</h2>
@@ -82,99 +164,19 @@ export function VariancePanel() {
     )
   }
 
-  const s = summarize(rows)
-  const shown = showAll ? s.rows : s.rows.slice(0, RECENT)
-  const scale = Math.max(1, ...s.rows.flatMap((r) => [r.proposedCents ?? 0, r.suggestedCents, r.finalCents]))
-  const rain = s.modelBias.byWeather.rain
-  const clear = s.modelBias.byWeather.clear
-
-  const bar = (label: string, cents: number | undefined, cls: string, testId: string) => (
-    <div className="flex items-center gap-2">
-      <span className="w-32 shrink-0 text-xs text-muted-foreground">{label}</span>
-      <div className="h-2 flex-1 rounded bg-muted">
-        <div className={`h-2 rounded ${cls}`} style={{ width: `${cents ? (cents / scale) * 100 : 0}%` }} />
-      </div>
-      <span data-testid={testId} className="w-16 shrink-0 text-right text-xs tabular-nums">
-        {cents ? usd(cents) : '—'}
-      </span>
-    </div>
-  )
-
-  const canExpand = s.rows.length > RECENT
-  const toggle = () => canExpand && setShowAll((v) => !v)
-
   return (
-    <section
+    <Link
+      to="/agreements"
       data-testid="variance-panel"
-      // Click anywhere on the section to see more (or fewer). Links inside keep working.
-      role={canExpand ? 'button' : undefined}
-      tabIndex={canExpand ? 0 : undefined}
-      aria-expanded={canExpand ? showAll : undefined}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest('a')) return
-        toggle()
-      }}
-      onKeyDown={(e) => {
-        if (canExpand && (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
-          e.preventDefault()
-          toggle()
-        }
-      }}
-      className={`mt-8 rounded-lg border border-border bg-card p-4 ${canExpand ? 'cursor-pointer hover:bg-card/80' : ''}`}
+      aria-label={`Agreement charts: open all ${s.rows.length} agreements`}
+      className="mt-8 block rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/40"
     >
       <h2 className="text-sm font-semibold">Agreement charts</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {s.meanAiVsProposedPct === null
-          ? `${s.rows.length} agreed ${s.rows.length === 1 ? 'price' : 'prices'}.`
-          : `Across ${s.rows.length} agreed ${s.rows.length === 1 ? 'price' : 'prices'}, the AI suggests ${signed(s.meanAiVsProposedPct)} against what customers offer` +
-            (s.meanFinalVsProposedPct === null ? '.' : `, and you settle ${signed(s.meanFinalVsProposedPct)} from their offer.`)}
+      <SummaryLine s={s} />
+      <AgreementRows rows={s.rows.slice(0, PREVIEW_COUNT)} />
+      <p data-testid="agreements-see-all" className="mt-4 text-sm font-medium underline underline-offset-4">
+        {s.rows.length > PREVIEW_COUNT ? `See all ${s.rows.length} agreements \u2192` : 'Open agreement charts \u2192'}
       </p>
-
-      <ul
-        data-testid="agreement-list"
-        className="mt-4 space-y-4"
-        aria-label="Customer offer, AI suggestion and agreed price for each agreement"
-      >
-        {shown.map((r) => (
-          <li key={r.requestId} data-testid={`variance-${r.requestId}`} className="text-sm">
-            <div className="flex justify-between gap-3">
-              <a href={`#request-${r.requestId}`} className="font-medium underline-offset-4 hover:underline">
-                {r.label}
-              </a>
-              <span className="tabular-nums text-muted-foreground">
-                agreed vs AI {signed(r.deltaPct)}
-                {r.finalVsProposedPct !== undefined && ` · vs offer ${signed(r.finalVsProposedPct)}`}
-              </span>
-            </div>
-            <div className="mt-1 space-y-1">
-              {bar('Customer offered', r.proposedCents, 'bg-muted-foreground', `bar-proposed-${r.requestId}`)}
-              {bar('AI suggested', r.suggestedCents, 'bg-primary', `bar-ai-${r.requestId}`)}
-              {bar('Agreed', r.finalCents, 'bg-green-500', `bar-final-${r.requestId}`)}
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {canExpand && (
-        <p data-testid="agreements-toggle" className="mt-4 text-sm font-medium underline underline-offset-4">
-          {showAll ? `Click to show only the latest ${RECENT}` : `Click to show all ${s.rows.length} agreements`}
-        </p>
-      )}
-
-      {s.modelBias.all && (
-        <div className="mt-5 border-t border-border pt-3 text-sm text-muted-foreground">
-          <p>
-            <span className="font-medium text-foreground">AI vs the demo&apos;s hidden reference price:</span>{' '}
-            {signed(s.modelBias.all.meanPct)} on average across {s.modelBias.all.count} fares
-            {rain && ` · rain ${signed(rain.meanPct)} (${rain.count})`}
-            {clear && ` · clear ${signed(clear.meanPct)} (${clear.count})`}.
-          </p>
-          <p className="mt-1">
-            The reference exists only because the demo data is synthetic. With few fares these numbers are noisy,
-            not a finding.
-          </p>
-        </div>
-      )}
-    </section>
+    </Link>
   )
 }

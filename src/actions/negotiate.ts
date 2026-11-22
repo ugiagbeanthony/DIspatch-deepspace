@@ -10,7 +10,14 @@
 
 import type { ActionHandler } from 'deepspace/worker'
 import type { Env } from '../../worker'
-import { dispatcherMove, newNegotiation, type Move, type Negotiation, type Turn } from '../negotiation/customer'
+import {
+  MAX_CUSTOMER_PRICE_CENTS,
+  dispatcherMove,
+  newNegotiation,
+  type Move,
+  type Negotiation,
+  type Turn,
+} from '../negotiation/customer'
 import { fail, getFields, getOwnedRequest, isDispatcher, ok, roleOf, str } from './common'
 
 export function negotiationFrom(fields: Record<string, unknown> | null): Negotiation {
@@ -59,6 +66,7 @@ export const negotiate: ActionHandler<Env> = async ({ userId, params, tools, env
   if (typeof proposed !== 'number' || proposed <= 0) {
     return fail("This request has no customer price. Add a new request with the customer's price.")
   }
+  if (proposed > MAX_CUSTOMER_PRICE_CENTS) return fail('The customer price on this request looks wrong, so it cannot be negotiated.')
   const fare = await getFields(tools, 'fares', `fare-${requestId}`)
   if (!fare) return fail('Price the request first')
 
