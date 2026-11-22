@@ -58,6 +58,8 @@ export const requestsSchema: CollectionSchema = {
     { name: 'proposedCents', storage: 'number', interpretation: 'plain' },
     { name: 'status', storage: 'text', interpretation: 'plain', maxLength: 24 },
     { name: 'weather', storage: 'text', interpretation: 'plain', maxLength: 24 },
+    /** 1 when the dispatcher has hidden it from their lists (history is kept). */
+    { name: 'hidden', storage: 'number', interpretation: 'plain' },
     { name: 'synthetic', storage: 'number', interpretation: 'plain' },
   ],
   permissions: {

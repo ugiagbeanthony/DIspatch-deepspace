@@ -4,7 +4,7 @@
  */
 
 import { Link } from 'react-router-dom'
-import { PRICING_NOTE, RequestList } from '@/components/RequestsPanel'
+import { RequestList } from '@/components/RequestsPanel'
 
 export default function RequestsPage() {
   return (
@@ -13,7 +13,6 @@ export default function RequestsPage() {
         &larr; Back to the console
       </Link>
       <h1 className="mt-3 text-3xl font-bold tracking-tight">All requests</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{PRICING_NOTE}</p>
       <RequestList />
     </div>
   )

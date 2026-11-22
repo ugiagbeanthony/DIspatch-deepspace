@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react'
 import { useQuery, useUser } from 'deepspace'
 import { Button } from '@/components/ui'
 import { callAction } from '../../../lib/call-action'
-import { SIM_MS_PER_MIN, activeJob, jobPhase, remainingMs, usd } from '../../../dispatch/offers'
+import { activeJob, jobPhase, remainingMs, usd } from '../../../dispatch/offers'
 
 interface OfferData {
   driverId: string
@@ -59,7 +59,6 @@ export default function DriverPage() {
     mine.map((o) => ({ ...o.data, id: o.recordId })),
     now,
   )
-  const isDriverRole = user?.role === 'viewer'
 
   async function act(label: string, action: string, params: Record<string, unknown> = {}) {
     setBusy(label)
@@ -72,21 +71,12 @@ export default function DriverPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-12 text-foreground">
       <h1 className="text-3xl font-bold tracking-tight">Driver</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {isDriverRole
-          ? 'Jobs sent to you by a dispatcher.'
-          : 'This is what a driver sees. You are previewing it with your own account; a real driver account sees only this.'}
-      </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button variant="secondary" onClick={() => act('demo', 'demo-jobs')} disabled={busy !== null}>
           {busy === 'demo' ? 'Creating…' : mine.length ? 'Reset demo jobs' : 'Get demo jobs'}
         </Button>
-        <span className="text-sm text-muted-foreground">Simulated jobs from a simulated dispatcher.</span>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Demo clock: one minute of trip time takes {SIM_MS_PER_MIN / 1000} seconds here.
-      </p>
       {error && (
         <p data-testid="driver-error" className="mt-3 text-sm text-red-400">
           {error}

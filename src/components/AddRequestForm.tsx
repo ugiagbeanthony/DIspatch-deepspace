@@ -62,7 +62,6 @@ export function AddRequestForm() {
       className="mt-8 rounded-lg border border-border bg-card p-4"
     >
       <h2 className="text-sm font-semibold">New request</h2>
-      <p className="mt-1 text-sm text-muted-foreground">A call comes in: add the trip and the price the customer offers.</p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-sm">
           <span className="mb-1 block text-muted-foreground">Pickup</span>

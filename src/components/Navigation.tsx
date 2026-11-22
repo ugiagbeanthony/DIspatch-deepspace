@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AuthOverlay, useAuthProfileReady, signOut } from 'deepspace'
 import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
-import { APP_NAME } from '../constants'
+import { BRAND } from '../constants'
 import type { Role } from '../constants'
 import { nav } from '../nav'
 import { NotificationBell } from './NotificationBell'
@@ -73,7 +73,7 @@ export default function Navigation() {
       <nav data-testid="app-navigation" className="border-b border-border bg-background">
         <div className="mx-auto flex h-12 max-w-7xl items-center gap-4 px-4">
           <Link to="/home" className="text-sm font-semibold text-foreground">
-            {APP_NAME}
+            {BRAND}
           </Link>
 
           <div className="hidden items-center md:flex">{visibleNav.map(navLink)}</div>

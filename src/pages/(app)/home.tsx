@@ -28,7 +28,8 @@ const COLLECTIONS = [
 function Count({ collection, label, mine }: { collection: string; label: string; mine: boolean }) {
   const all = useQuery(collection)
   const own = useMine(collection)
-  const { records, status } = mine ? own : all
+  const { records: all_, status } = mine ? own : all
+  const records = all_.filter((r) => (r.data as { hidden?: number }).hidden !== 1)
   const synthetic = records.filter((r) => (r.data as { synthetic?: number }).synthetic === 1).length
   return (
     <div data-testid={`count-${collection}`} className="rounded-lg border border-border bg-card p-4">
@@ -65,10 +66,6 @@ function SeedPanel({
   return (
     <section data-testid="seed-panel" className="mt-8 rounded-lg border border-border bg-card p-4">
       <h2 className="text-sm font-semibold">Demo data (owner)</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Seeds the shared fleet (20 drivers) and 14 days of fare history, all labelled synthetic. Each dispatcher adds their own demo requests. Safe to run again: it
-        overwrites the same rows instead of adding more.
-      </p>
       <div className="mt-3 flex items-center gap-3">
         <Button onClick={seed} disabled={!connected || busy}>
           {busy ? 'Seeding…' : latest?.status === 'succeeded' ? 'Re-seed demo data' : 'Seed demo data'}
@@ -135,8 +132,7 @@ export default function HomePage() {
     <div className="mx-auto max-w-4xl px-6 py-12 text-foreground">
       <h1 className="text-3xl font-bold tracking-tight">Dispatch console</h1>
       <p data-testid="role-banner" className="mt-2 text-sm text-muted-foreground">
-        Signed in as {user.name || user.email} · {isOwner ? 'owner and dispatcher' : 'dispatcher'}. Want to see what a
-        driver sees? <Link className="underline underline-offset-4" to="/driver">Open the driver screen</Link>.
+        Signed in as {user.name || user.email} · {isOwner ? 'owner and dispatcher' : 'dispatcher'}
       </p>
 
       <dl className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -150,10 +146,6 @@ export default function HomePage() {
       <VariancePanel />
       {isOwner && <OwnerTools />}
 
-      <p className="mt-8 text-sm text-muted-foreground">
-        The fleet, the demo requests and the fare history are demo data labelled synthetic. Drivers are simulated;
-        the permissions, pricing checks and job flow are real.
-      </p>
     </div>
   )
 }

@@ -1,6 +1,9 @@
 /** App name — replaced by the CLI during scaffolding */
 export const APP_NAME = 'dispatch'
 
+/** The name people see. APP_NAME stays the technical id (and the web address). */
+export const BRAND = 'Curbline'
+
 /** Immutable app identity — data scope keys to this, so renames never
  *  strand your records.
  *

@@ -141,10 +141,6 @@ export function ReferenceNote({ s }: { s: VarianceSummary }) {
         {rain && ` \u00b7 rain ${signed(rain.meanPct)} (${rain.count})`}
         {clear && ` \u00b7 clear ${signed(clear.meanPct)} (${clear.count})`}.
       </p>
-      <p className="mt-1">
-        The reference exists only because the demo data is synthetic. With few fares these numbers are noisy, not a
-        finding.
-      </p>
     </div>
   )
 }

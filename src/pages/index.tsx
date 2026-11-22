@@ -18,7 +18,7 @@
 
 import { Link } from 'react-router-dom'
 import { Seo } from '../components/Seo'
-import { APP_NAME } from '../constants'
+import { BRAND } from '../constants'
 import { seo } from '../seo'
 
 export default function Landing() {
@@ -29,26 +29,29 @@ export default function Landing() {
         data-testid="static-landing"
         className="flex min-h-screen flex-col items-center justify-center px-6 text-center"
       >
-        <p className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">{APP_NAME}</p>
+        <p className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">{BRAND}</p>
         <h1 className="mb-4 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Dispatch a small fleet, and see why every fare is what it is
         </h1>
-        <p className="mb-4 max-w-xl text-muted-foreground">
+        <p className="mb-8 max-w-xl text-muted-foreground">
           A dispatcher console: ranked driver matches with reasons, AI fares broken
           into factors that must add up to the total, and a record of every manual
           override against what the model suggested.
         </p>
-        <p className="mb-8 max-w-xl text-sm text-muted-foreground">
-          Demo data: the fleet, requests and fare history are seeded and labelled
-          synthetic. The permissions, job pipeline, model calls and fare checks are
-          real.
-        </p>
-        <Link
-          to="/home"
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Open the console
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/home"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Open the console
+          </Link>
+          <Link
+            to="/customer"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+          >
+            Request a ride
+          </Link>
+        </div>
       </div>
     </>
   )

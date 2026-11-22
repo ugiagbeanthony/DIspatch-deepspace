@@ -12,12 +12,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { useQuery } from 'deepspace'
+import { useMutations, useQuery } from 'deepspace'
 import { useMine } from '../lib/use-mine'
 import { Button } from '@/components/ui'
 import { callAction } from '../lib/call-action'
 import { rankDrivers, type DriverLite } from '../matching/rank'
 import { jobPhase, sendBlockReason, usd } from '../dispatch/offers'
+import { hideBlockReason } from '../dispatch/hide'
 import { parseDollars, parseTurns } from '../negotiation/customer'
 
 interface RequestData {
@@ -29,6 +30,7 @@ interface RequestData {
   proposedCents?: number
   weather: string
   status: string
+  hidden?: number
   synthetic?: number
 }
 
@@ -120,6 +122,8 @@ export function RequestList({ limit }: { limit?: number }) {
   }, [])
 
   const [open, setOpen] = useState<string | null>(null)
+  const [showHidden, setShowHidden] = useState(false)
+  const requestWrites = useMutations<Partial<RequestData>>('requests')
   const [busy, setBusy] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [quotes, setQuotes] = useState<Record<string, string>>({})
@@ -158,7 +162,18 @@ export function RequestList({ limit }: { limit?: number }) {
   const rows = [...requests.records].sort(
     (a, b) => when(b.createdAt) - when(a.createdAt) || a.recordId.localeCompare(b.recordId),
   )
-  const shown = limit === undefined ? rows : rows.slice(0, limit)
+  const hiddenCount = rows.filter((r) => r.data.hidden === 1).length
+  const visible = showHidden ? rows : rows.filter((r) => r.data.hidden !== 1)
+  const shown = limit === undefined ? visible : visible.slice(0, limit)
+
+  async function setHidden(requestId: string, hide: boolean) {
+    setError(requestId, null)
+    try {
+      await requestWrites.put(requestId, { hidden: hide ? 1 : 0 })
+    } catch (e) {
+      setError(requestId, e instanceof Error ? e.message : 'Could not update the request')
+    }
+  }
 
   // A new dispatcher starts with their own copy of the demo requests, with no
   // click needed. The action skips any that already exist, so this is safe, and
@@ -179,7 +194,7 @@ export function RequestList({ limit }: { limit?: number }) {
       {requests.status === 'ready' && rows.length === 0 && (
         <div data-testid="no-requests" className="mt-3 rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">
-            Setting up your demo requests… If nothing appears, add one above or use the button.
+            Setting up your requests…
           </p>
           <Button
             className="mt-3"
@@ -200,6 +215,7 @@ export function RequestList({ limit }: { limit?: number }) {
           const sum = factors.reduce((n, f) => n + f.cents, 0)
           const adds = fare ? sum === fare.modelTotalCents : false
           const isOpen = open === r.recordId
+          const isHidden = r.data.hidden === 1
           const myOffers = offers.records.filter((o) => o.data.requestId === r.recordId)
           const neg = negotiations.records.find((n) => n.data.requestId === r.recordId)?.data
           const proposed = r.data.proposedCents
@@ -207,6 +223,7 @@ export function RequestList({ limit }: { limit?: number }) {
           const negOpen = !neg || neg.status === 'open' || neg.status === 'countered'
           const turns = parseTurns(neg?.log)
           // A job can go out only at an agreed price, and only until a driver accepts.
+          const hideBlock = hideBlockReason(r.data.status, myOffers.map((o) => o.data), now)
           const blocked =
             sendBlockReason(myOffers.map((o) => o.data)) ??
             (agreed ? null : 'Agree a price with the customer first.')
@@ -244,6 +261,7 @@ export function RequestList({ limit }: { limit?: number }) {
 
                 <Button
                   onClick={() => run(r.recordId, 'price', { requestId: r.recordId })}
+                  title="Uses your own DeepSpace credits (about a tenth of a cent)"
                   disabled={busy !== null || agreed || myOffers.length > 0}
                 >
                   {busy === `${r.recordId}:price` ? 'Pricing…' : fare ? 'Re-price' : 'Price'}
@@ -259,6 +277,16 @@ export function RequestList({ limit }: { limit?: number }) {
                     Details {isOpen ? <ChevronUp className="ml-1 h-4 w-4" aria-hidden /> : <ChevronDown className="ml-1 h-4 w-4" aria-hidden />}
                   </Button>
                 )}
+
+                <Button
+                  variant="secondary"
+                  data-testid={`hide-${r.recordId}`}
+                  disabled={busy !== null || (!isHidden && hideBlock !== null)}
+                  title={!isHidden && hideBlock ? hideBlock : undefined}
+                  onClick={() => setHidden(r.recordId, !isHidden)}
+                >
+                  {isHidden ? 'Unhide' : 'Hide'}
+                </Button>
               </div>
 
               {errors[r.recordId] && (
@@ -288,14 +316,16 @@ export function RequestList({ limit }: { limit?: number }) {
                     </tbody>
                   </table>
 
-                  <p className="mt-3 text-muted-foreground">
-                    {fare.source === 'fallback'
-                      ? 'The model failed twice, so this fare comes from the historical digest instead.'
-                      : 'Priced by the model; the total is the sum of its rows, computed by the app.'}
-                    {fare.rejections
-                      ? ` ${fare.rejections} answer${fare.rejections > 1 ? 's' : ''} rejected: ${fare.rejectionNotes}`
-                      : ''}
-                  </p>
+                  {(fare.source === 'fallback' || !!fare.rejections) && (
+                    <p className="mt-3 text-muted-foreground">
+                      {fare.source === 'fallback'
+                        ? 'The model failed twice, so this fare comes from the historical digest instead.'
+                        : ''}
+                      {fare.rejections
+                        ? ` ${fare.rejections} answer${fare.rejections > 1 ? 's' : ''} rejected: ${fare.rejectionNotes}`
+                        : ''}
+                    </p>
+                  )}
 
                   {/* Negotiate with the simulated customer */}
                   <h3 className="mt-5 font-semibold">Price negotiation</h3>
@@ -486,28 +516,33 @@ export function RequestList({ limit }: { limit?: number }) {
           )
         })}
       </ul>
-      {limit !== undefined && rows.length > limit && (
+      {limit === undefined && hiddenCount > 0 && (
+        <button
+          data-testid="toggle-hidden"
+          onClick={() => setShowHidden((v) => !v)}
+          className="mt-4 text-sm font-medium underline underline-offset-4"
+        >
+          {showHidden ? 'Hide the hidden ones again' : `Show hidden (${hiddenCount})`}
+        </button>
+      )}
+      {limit !== undefined && visible.length > limit && (
         <Link
           to="/requests"
           data-testid="requests-see-all"
           className="mt-4 inline-block text-sm font-medium underline underline-offset-4"
         >
-          See all {rows.length} requests &rarr;
+          See all {visible.length} requests &rarr;
         </Link>
       )}
     </div>
   )
 }
 
-export const PRICING_NOTE =
-  'Pricing uses the AI model and is billed to your own DeepSpace credits (about a tenth of a cent each).'
-
 /** The console section: the latest few requests, each with a Details dropdown. */
 export function RequestsPanel() {
   return (
     <section data-testid="requests-panel" className="mt-8">
       <h2 className="text-lg font-semibold">Requests</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{PRICING_NOTE}</p>
       <RequestList limit={PREVIEW_COUNT} />
     </section>
   )
