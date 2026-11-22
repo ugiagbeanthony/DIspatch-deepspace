@@ -97,7 +97,7 @@ export default function HomePage() {
       <div className="flex min-h-[60vh] items-center justify-center px-6 py-20">
         <div className="w-full max-w-sm rounded-lg border border-border bg-card p-8 text-center">
           <h1 className="text-lg font-semibold text-foreground">Dispatch console</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Sign in to take requests, price them and send jobs to drivers.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in to review incoming requests, price them and send jobs to drivers.</p>
           <Button className="mt-6 w-full" onClick={() => setShowAuth(true)}>
             Sign in
           </Button>

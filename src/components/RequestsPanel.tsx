@@ -19,6 +19,7 @@ import { callAction } from '../lib/call-action'
 import { rankDrivers, type DriverLite } from '../matching/rank'
 import { jobPhase, sendBlockReason, usd } from '../dispatch/offers'
 import { hideBlockReason } from '../dispatch/hide'
+import { orderQueue } from '../dispatch/queue'
 import { parseDollars, parseTurns } from '../negotiation/customer'
 
 interface RequestData {
@@ -158,14 +159,27 @@ export function RequestList({ limit }: { limit?: number }) {
     )
   }
 
-  // Newest first (ties keep a stable order). The console shows only the latest few.
   const when = (iso: string) => Date.parse(iso) || 0
-  const rows = [...requests.records].sort(
-    (a, b) => when(b.createdAt) - when(a.createdAt) || a.recordId.localeCompare(b.recordId),
-  )
+  const rows = [...requests.records].sort((a, b) => a.recordId.localeCompare(b.recordId))
   const hiddenCount = rows.filter((r) => r.data.hidden === 1).length
-  const visible = showHidden ? rows : rows.filter((r) => r.data.hidden !== 1)
+  const visibleRows = showHidden ? rows : rows.filter((r) => r.data.hidden !== 1)
+
+  // Queue order: what has waited longest comes first, then jobs with drivers,
+  // then finished requests (newest first). The console shows only the first few.
+  const queue = orderQueue(
+    visibleRows,
+    (r) => ({
+      status: r.data.status,
+      offers: offers.records.filter((o) => o.data.requestId === r.recordId).map((o) => o.data),
+      createdMs: when(r.createdAt),
+    }),
+    now,
+  )
+  const visible = queue.map((q) => q.item)
   const shown = limit === undefined ? visible : visible.slice(0, limit)
+  const unattendedTotal = queue.filter((q) => q.bucket === 'unattended').length
+  const unattendedShown = (limit === undefined ? queue : queue.slice(0, limit)).filter((q) => q.bucket === 'unattended').length
+  const moreUnattended = unattendedTotal - unattendedShown
 
   async function setHidden(requestId: string, hide: boolean) {
     setError(requestId, null)
@@ -530,6 +544,12 @@ export function RequestList({ limit }: { limit?: number }) {
         >
           {showHidden ? 'Hide the hidden ones again' : `Show hidden (${hiddenCount})`}
         </button>
+      )}
+      {limit !== undefined && moreUnattended > 0 && (
+        <p data-testid="more-unattended" className="mt-4 text-sm font-medium">
+          {moreUnattended} more unattended request{moreUnattended === 1 ? '' : 's'}. View all to see{' '}
+          {moreUnattended === 1 ? 'it' : 'them'}.
+        </p>
       )}
       {limit !== undefined && visible.length > limit && (
         <Link

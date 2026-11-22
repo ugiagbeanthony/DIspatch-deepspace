@@ -167,15 +167,17 @@ Not built, and explained in WRITEUP.md: cron, email/push, map, chat, payments,
 real two-sided matching, customer accounts, recurring contracts.
 
 Later that evening: app renamed Curbline (display only; address and app id stay
-`dispatch`); Hide/Unhide requests (a flag, blocked while negotiating or a job is in
-play); customer screen (`/customer`, `trips` collection, `trip-request` and
+`dispatch`); Hide/Unhide requests (a flag; only completed, rejected or
+cancelled requests can be hidden); customer screen (`/customer`, `trips` collection, `trip-request` and
 `trip-move` actions, simulated dispatcher with a hidden floor); explanatory
 paragraphs removed from the UI (they live in the README). 138 tests.
 Dispatchers no longer log requests: the manual form is gone, `requests` is not
 client-creatable, and requests arrive via `demo-requests` (six on first visit)
 and `incoming-request` ("Receive a new request", capped at 30). Lists on the
 console, customer and driver screens show the latest three and expand
-(`src/lib/recent.ts`). 146 tests.
+(`src/lib/recent.ts`). 152 tests. The console lists requests as a queue (`src/dispatch/queue.ts`): unattended
+oldest first, then with-a-driver, then finished newest first, with a "N more
+unattended requests" note when more are waiting than fit.
 Not tried by hand yet: customer screen, Hide, incoming requests.
 
 Windows note: run vitest from a shell whose path starts with an uppercase `C:`.

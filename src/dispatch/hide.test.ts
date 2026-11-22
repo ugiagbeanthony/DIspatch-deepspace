@@ -3,29 +3,28 @@ import { jobDurationMs } from './offers'
 import { hideBlockReason } from './hide'
 
 const T0 = 1_000_000
+const finishedJob = { status: 'accepted', etaMin: 3, acceptedAt: T0 - jobDurationMs(3) - 1 }
 
-describe('hideBlockReason', () => {
-  it('lets you hide finished and idle requests', () => {
-    for (const status of ['open', 'priced', 'agreed', 'cancelled', 'rejected', 'declined']) {
-      expect(hideBlockReason(status, [], T0), status).toBeNull()
+describe('hideBlockReason: only finished requests can be hidden', () => {
+  it('lets you hide a rejected or cancelled request', () => {
+    expect(hideBlockReason('rejected', [], T0)).toBeNull()
+    expect(hideBlockReason('cancelled', [], T0)).toBeNull()
+  })
+
+  it('lets you hide a completed request, but not one whose job is still running', () => {
+    expect(hideBlockReason('accepted', [finishedJob], T0)).toBeNull()
+    const running = { status: 'accepted', etaMin: 3, acceptedAt: T0 }
+    expect(hideBlockReason('accepted', [running], T0 + 1)).toMatch(/in progress/)
+  })
+
+  it('refuses requests that are new, priced, agreed or declined', () => {
+    for (const status of ['open', 'priced', 'agreed', 'declined']) {
+      expect(hideBlockReason(status, [], T0), status).toMatch(/Only finished/)
     }
   })
 
-  it('refuses while a negotiation is still going', () => {
-    expect(hideBlockReason('negotiating', [], T0)).toMatch(/negotiation/)
-  })
-
-  it('refuses while a job is waiting for a driver', () => {
+  it('explains why a negotiation or a waiting job blocks it', () => {
+    expect(hideBlockReason('negotiating', [], T0)).toMatch(/negotiated/)
     expect(hideBlockReason('offered', [{ status: 'pending', etaMin: 3 }], T0)).toMatch(/waiting/)
-  })
-
-  it('refuses while a job is in progress, then allows it once the job is done', () => {
-    const job = { status: 'accepted', etaMin: 3, acceptedAt: T0 }
-    expect(hideBlockReason('accepted', [job], T0 + 1)).toMatch(/in progress/)
-    expect(hideBlockReason('accepted', [job], T0 + jobDurationMs(3))).toBeNull()
-  })
-
-  it('allows hiding a request whose jobs were all declined', () => {
-    expect(hideBlockReason('declined', [{ status: 'declined', etaMin: 3 }], T0)).toBeNull()
   })
 })

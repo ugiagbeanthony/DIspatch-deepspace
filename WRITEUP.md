@@ -13,7 +13,7 @@ A dispatch console for a small independent taxi fleet. Requests arrive at the di
 5. **Compare.** Agreement charts show customer-offered vs AI vs agreed price; the console previews the latest three and a separate page lists them all. Finished requests can be hidden to keep the list short (a flag, so history is kept).
 6. **Customer side.** A customer screen lets a person ask for a ride and offer a price. A simulated dispatcher quotes from the fare history and can be countered, but never goes below its own hidden lowest price; once agreed, the closest free driver is matched.
 
-Both sides get in-app notifications.
+The console works as a queue, with the request that has waited longest on top and a note when more are unattended. Both sides get in-app notifications.
 
 ## DeepSpace integrations used
 
@@ -43,7 +43,7 @@ On the live site:
 - **Who pays, checked with a second account.** Before the test my DeepSpace account showed 11 AI calls ($0.0041). I signed in as a different dispatcher, got that account's own demo requests, and priced one: the price details read "Priced by the model", so a real model call ran. Then I negotiated, sent the job, and the simulated driver accepted and completed it. Afterwards my account still showed exactly 11 calls, so the call was billed to the second account, not to me.
 - Using the app found two real bugs, both fixed: the pricing job read a record one level too shallow and failed with "Unknown zone: undefined", and a job accepted before the countdown existed locked the driver screen permanently.
 
-Covered by **138 automated tests, not re-checked by hand** (this includes the customer screen and the Hide rule, which I have not tried on the live site): the role permissions run against the SDK's real permission check (driver B cannot read driver A's offer; a driver cannot read requests or edit a price); the fare reconcile rule against a deliberately lying model (wrong arithmetic, junk text, decimals, out-of-range totals, a crash); the negotiation limits; and the one-job-at-a-time and locked-after-accept rules.
+Covered by **152 automated tests, not re-checked by hand** (this includes the customer screen and the Hide rule, which I have not tried on the live site): the role permissions run against the SDK's real permission check (driver B cannot read driver A's offer; a driver cannot read requests or edit a price); the fare reconcile rule against a deliberately lying model (wrong arithmetic, junk text, decimals, out-of-range totals, a crash); the negotiation limits; and the one-job-at-a-time and locked-after-accept rules.
 
 **Not verified live:** that a second dispatcher cannot see *my* requests (enforced by the permission rules and covered by tests, but I did not look for them from the second account), and I did not sign in as a driver (`viewer`) account. I also could not read the second account's own credit balance, only that mine did not move.
 
