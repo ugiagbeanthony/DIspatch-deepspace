@@ -22,7 +22,7 @@ import {
   sendBlockReason,
   simulatedReply,
 } from '../dispatch/offers'
-import { fail, getFields, isDispatcher, notify, ok, roleOf, str } from './common'
+import { fail, getFields, getOwnedRequest, isDispatcher, notify, ok, roleOf, str } from './common'
 
 export const sendOffer: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   if (!isDispatcher(await roleOf(env, userId))) return fail('Only dispatchers can send jobs')
@@ -30,7 +30,7 @@ export const sendOffer: ActionHandler<Env> = async ({ userId, params, tools, env
   const driverUserId = str(params.driverUserId)
   if (!requestId || !driverUserId) return fail('requestId and driverUserId are required')
 
-  const req = await getFields(tools, 'requests', requestId)
+  const req = await getOwnedRequest(tools, requestId, userId)
   if (!req) return fail('Request not found')
   const neg = await getFields(tools, 'negotiations', `neg-${requestId}`)
   if (!neg || neg.status !== 'agreed' || typeof neg.agreedCents !== 'number') {
@@ -123,6 +123,7 @@ export const simulateReply: ActionHandler<Env> = async ({ userId, params, tools,
 
   const offer = await getFields(tools, 'offers', offerId)
   if (!offer) return fail('Job not found')
+  if (offer.dispatcherId !== userId) return fail('Job not found')
   const driverId = String(offer.driverId)
   if (!isSimulatedId(driverId)) return fail('Only simulated drivers can be answered for')
   if (offer.status !== 'pending') return fail(`Job is already ${String(offer.status)}`)

@@ -2,6 +2,7 @@ import type { ActionHandler } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { price } from './price'
 import { negotiate } from './negotiate'
+import { demoRequests } from './demo-requests'
 import { demoJobs, respondOffer, sendOffer, simulateReply } from './offers'
 
 /**
@@ -11,6 +12,7 @@ import { demoJobs, respondOffer, sendOffer, simulateReply } from './offers'
 export const actions: Record<string, ActionHandler<Env>> = {
   price,
   negotiate,
+  'demo-requests': demoRequests,
   'send-offer': sendOffer,
   'respond-offer': respondOffer,
   'simulate-reply': simulateReply,

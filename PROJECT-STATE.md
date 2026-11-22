@@ -111,10 +111,13 @@ the unit tests already cover. Increment 5's driver view is optional.
 
 `admin` = owner (also a dispatcher, and the only one who can seed). `member` =
 **dispatcher**, the default for anyone who signs in, so a reviewer can use the
-app. `viewer` = **driver**: reads no console data, only offers addressed to them
-and their own notifications. Console collections are member-read; requests are
-member-create/update; fares are member-update (server creates); fleet and history
-are admin-write. Offers, notifications and negotiations are written only by
+app, each with a PRIVATE workspace. `viewer` = **driver**: reads no console data, only offers addressed to them
+and their own notifications. Requests, fares and negotiations are `read: 'own'` (createdBy), so each dispatcher
+sees only their own; actions also check `request.createdBy === caller` before
+pricing/negotiating/sending. Demo requests are per-user (`req-<userId>-<n>`,
+'Add demo requests'). Fleet and fare history are shared, owner-written.
+Billing: every AI/integration call bills the CALLER (price action refuses without
+the caller token; integration routes default to 'user'); `billing.test.ts` guards it. Offers, notifications and negotiations are written only by
 server actions. The driver screen for a dispatcher is NOT a role switch: it
 filters to offers whose `driverId` is your own id; "Get demo jobs" creates three
 simulated jobs addressed to you.

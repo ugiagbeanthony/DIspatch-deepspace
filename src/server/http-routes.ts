@@ -238,7 +238,9 @@ export function registerAuthAndIntegrationRoutes(app: Hono<AppContext>): void {
     const target = integrationPath(integrationName, c.req.param('endpoint'))
     if (!target) return c.json({ error: 'Unknown integration' }, 404)
     const config = lookupOwn(integrations, integrationName)
-    const billingMode = config?.billing ?? 'developer'
+    // Unlisted integrations bill the CALLER. The scaffold default was the owner,
+    // which let any signed-in user spend the owner's credits through this route.
+    const billingMode = config?.billing ?? 'user'
 
     // Sign-in is required unless the app opts this integration into anonymous
     // use; developer billing would otherwise let any visitor spend the owner's

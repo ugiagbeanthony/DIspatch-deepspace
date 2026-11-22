@@ -46,3 +46,20 @@ export async function notify(
   if (!userId || isSimulatedId(userId)) return
   await tools.create('notifications', { userId, ...notice, read: 0 }, recordId)
 }
+
+/**
+ * A request, but only if the caller created it. Actions bypass per-record
+ * permissions, so without this a dispatcher could price, negotiate or send
+ * ANOTHER dispatcher's request just by knowing its id. A request that is not
+ * yours is reported as not found, so its existence is not revealed.
+ */
+export async function getOwnedRequest(
+  tools: ActionTools,
+  requestId: string,
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  const r = await tools.get('requests', requestId)
+  if (!r.success) return null
+  if (r.data.record.createdBy !== userId) return null
+  return r.data.record.data as Record<string, unknown>
+}

@@ -104,7 +104,8 @@ function createActionTools(env: Env, userId: string, callerJwt: string): ActionT
       }
     }
     const integrationName = target.name
-    const billingMode = lookupOwn(integrations, integrationName)?.billing ?? 'developer'
+    // Unlisted integrations bill the caller, not the owner (see http-routes.ts).
+    const billingMode = lookupOwn(integrations, integrationName)?.billing ?? 'user'
 
     // The api-worker bills the JWT subject: owner for developer mode, caller
     // for user mode. It does not accept a client-supplied billing override.

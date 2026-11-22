@@ -16,7 +16,7 @@ Both sides get in-app notifications.
 
 ## DeepSpace integrations used
 
-- **Records with per-collection role permissions, enforced in the Durable Object.** Three roles map onto the app: owner (`admin`), dispatcher (`member`, the default for anyone who signs in) and driver (`viewer`). Drivers read none of the console. Offers use `ownerField: 'driverId'`, so a driver reads only their own offer, decided before anything is broadcast.
+- **Records with per-collection role permissions, enforced in the Durable Object.** Three roles map onto the app: owner (`admin`), dispatcher (`member`, the default for anyone who signs in) and driver (`viewer`). Drivers read none of the console. Each dispatcher has a **private workspace**: requests, fares and negotiations are `read: 'own'`, so another dispatcher's account sees none of them. Offers use `ownerField: 'driverId'`, so a driver reads only their own offer, decided before anything is broadcast.
 - **Live record subscriptions.** Every screen updates in real time from the record connection; no polling.
 - **Server actions.** Pricing, negotiation, sending jobs, driver replies and notifications run as actions. They bypass per-record permissions, so each checks the caller's role and ownership by hand.
 - **Background jobs** (durable job room, `useJobs`). The owner's demo-data seeding runs as a job; the job queue is admin-only.
@@ -30,20 +30,20 @@ I also **cut payments**: DeepSpace offers Stripe Checkout, not payouts to driver
 
 ## What the agent did
 
-I used Claude Code. It wrote the seed generator, the pricing pipeline and its checks, the negotiation rules, the server actions, the interface and the tests, and deployed the app. It also found a real security hole in the first version (any signed-in user could start a background job running as the dispatcher) and closed it. I made the product decisions, signed in to DeepSpace and GitHub, redirected the design several times (including to a dispatcher-first app), and tried the live app.
+I used Claude Code. It wrote the seed generator, the pricing pipeline and its checks, the negotiation rules, the server actions, the interface and the tests, and deployed the app. It also found two real holes and closed them: in the first version any signed-in user could start a background job running as the dispatcher, and the scaffold's integration route billed the app owner by default, so any signed-in user could have spent my credits. Everything now bills the caller, and a test fails if that regresses. I made the product decisions, signed in to DeepSpace and GitHub, redirected the design several times (including to a dispatcher-first app), and tried the live app.
 
 ## What I verified by hand
 
 On the live site:
 
-- Seeding the demo data produced 6 requests, 20 drivers and 140 fare-history rows, all marked synthetic. Running it again left the counts unchanged.
+- Seeding the shared demo data produced 20 drivers and 140 fare-history rows, all marked synthetic. Running it again left the counts unchanged.
 - Pricing a request with the real model worked and produced a fare that appears in the chart.
 - On the driver screen, accepting a job started a countdown and locked the other jobs until it finished. The notification bell updated.
 - Using the app found two real bugs, both fixed: the pricing job read a record one level too shallow and failed with "Unknown zone: undefined", and a job accepted before the countdown existed locked the driver screen permanently.
 
 Covered by **106 automated tests, not re-checked by hand**: the role permissions run against the SDK's real permission check (driver B cannot read driver A's offer; a driver cannot read requests or edit a price); the fare reconcile rule against a deliberately lying model (wrong arithmetic, junk text, decimals, out-of-range totals, a crash); the negotiation limits; and the one-job-at-a-time and locked-after-accept rules.
 
-**Not verified:** that pricing bills the *dispatcher's* credits rather than mine. Testing it needs a second account. Likewise I did not sign in as a driver (`viewer`) account or a second dispatcher on the live site.
+**Not verified live:** that pricing bills the *dispatcher's* credits rather than mine, and that a second dispatcher's account really sees none of my requests. Both need a second account; both are enforced in code and covered by tests. Likewise I did not sign in as a driver (`viewer`) account.
 
 ## What I left out, and why
 
@@ -55,4 +55,4 @@ Covered by **106 automated tests, not re-checked by hand**: the role permissions
 
 ## Honest limits
 
-All fleet, request and history data is synthetic (14 days, 140 rows), so the AI's numbers are only as meaningful as that history. The chart also compares the AI with a hidden reference price that only exists because the data is synthetic; on the handful of fares I priced it sat a few percent above that reference, which is far too few to call a finding, and I have not measured the effect of rain. Every signed-in dispatcher shares the same demo requests, so two reviewers can overwrite each other's work.
+All fleet, request and history data is synthetic (14 days, 140 rows), so the AI's numbers are only as meaningful as that history. The chart also compares the AI with a hidden reference price that only exists because the data is synthetic; on the handful of fares I priced it sat a few percent above that reference, which is far too few to call a finding, and I have not measured the effect of rain. Jobs sent to drivers belong to the driver (which is what keeps them private to one driver), so a dispatcher's list of the jobs they sent is filtered on screen rather than enforced by the database; everything else in a dispatcher's workspace is enforced by the permission rules.

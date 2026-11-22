@@ -23,10 +23,14 @@ export const price: ActionHandler<Env> = async ({ userId, params, tools, env, ca
   if (!isDispatcher(await roleOf(env, userId))) return fail('Only dispatchers can price requests')
   const requestId = str(params.requestId)
   if (!requestId) return fail('requestId is required')
+  // createDeepSpaceAI falls back to the OWNER's token when none is given. Refuse
+  // to price at all rather than ever bill the owner.
+  if (!callerJwt) return fail('Sign in again: pricing is billed to your own credits and needs your session.')
 
   try {
     const got = await tools.get('requests', requestId)
-    if (!got.success) return fail('Request not found')
+    // Not yours reads as not found: actions bypass per-record permissions, so check here.
+    if (!got.success || got.data.record.createdBy !== userId) return fail('Request not found')
     const req = requestFromGet(got.data)
     const status = (got.data.record.data as { status?: string }).status
     if (status === 'agreed' || status === 'offered' || status === 'accepted') {

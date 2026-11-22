@@ -4,8 +4,10 @@
  * Who is who (DeepSpace has three roles, so we map onto them):
  *   admin  = the app owner. Seeds demo data, manages roles.
  *   member = a DISPATCHER. Anyone who signs in lands here by default, so a
- *            reviewer can use the console. Reads everything; creates and
- *            updates requests; adjusts fares.
+ *            reviewer can use the console. Works on THEIR OWN requests, fares
+ *            and negotiations only (`read: 'own'` = created by them), so every
+ *            dispatcher has a private workspace. Reads the shared fleet and
+ *            fare history.
  *   viewer = a DRIVER. Sees nothing in the console: no requests, no fleet, no
  *            fares. A driver only ever sees offers addressed to them
  *            (offers-schema.ts) and their own notifications.
@@ -61,7 +63,8 @@ export const requestsSchema: CollectionSchema = {
   permissions: {
     '*': none,
     viewer: none,
-    member: { read: true, create: true, update: true, delete: false },
+    // A dispatcher sees and updates only the requests THEY created.
+    member: { read: 'own', create: true, update: 'own', delete: false },
     admin: { read: true, create: true, update: true, delete: true },
   },
 }
@@ -94,7 +97,8 @@ export const faresSchema: CollectionSchema = {
   permissions: {
     '*': none,
     viewer: none,
-    member: { read: true, create: false, update: true, delete: false },
+    // The server creates a fare as the dispatcher who priced it; they read only their own.
+    member: { read: 'own', create: false, update: false, delete: false },
     admin: { read: true, create: true, update: true, delete: true },
   },
 }
@@ -155,5 +159,11 @@ export const negotiationsSchema: CollectionSchema = {
     /** JSON text: [{from, cents, note}] */
     { name: 'log', storage: 'text', interpretation: 'plain', maxLength: 3000 },
   ],
-  permissions: dispatcherReadOnly,
+  permissions: {
+    '*': none,
+    viewer: none,
+    // Created by the server as the dispatcher who negotiated; they read only their own.
+    member: { read: 'own', create: false, update: false, delete: false },
+    admin: { read: true, create: true, update: true, delete: true },
+  },
 }

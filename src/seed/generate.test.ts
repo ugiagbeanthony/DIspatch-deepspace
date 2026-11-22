@@ -6,6 +6,7 @@ import {
   buildDigest,
   generateDrivers,
   generateHistory,
+  demoRequestsFor,
   generateRequests,
   truthFareCents,
 } from './generate'
@@ -70,5 +71,19 @@ describe('seed generator', () => {
       expect(r.data.proposedCents).toBeLessThan(fair)
       expect(r.data.proposedCents).toBeGreaterThan(fair * 0.7)
     }
+  })
+
+  it('gives each dispatcher their own copies of the demo requests', () => {
+    const a = demoRequestsFor('user_a')
+    const b = demoRequestsFor('user_b')
+    expect(a).toHaveLength(6)
+    expect(new Set(a.map((r) => r.recordId)).size).toBe(6)
+    // No id is shared between two dispatchers, so one cannot overwrite the other's rows.
+    expect(a.some((r) => b.some((x) => x.recordId === r.recordId))).toBe(false)
+    expect(a[0].recordId).toContain('user_a')
+    // The content is the same demo set.
+    expect(a.map((r) => r.data)).toEqual(b.map((r) => r.data))
+    // Same user, same ids: asking twice does not duplicate.
+    expect(demoRequestsFor('user_a').map((r) => r.recordId)).toEqual(a.map((r) => r.recordId))
   })
 })

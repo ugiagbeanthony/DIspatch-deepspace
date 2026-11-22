@@ -178,6 +178,15 @@ export function generateRequests(): RequestSeed[] {
   })
 }
 
+/**
+ * The six demo requests for ONE dispatcher. Record ids include the user id, so
+ * every dispatcher gets their own copies (and `createdBy` is them), instead of
+ * everyone sharing one set.
+ */
+export function demoRequestsFor(userId: string): RequestSeed[] {
+  return generateRequests().map((r, i) => ({ ...r, recordId: `req-${userId}-${i + 1}` }))
+}
+
 // -- history (ground truth for pricing) ----------------------------------------
 export interface HistorySeed {
   recordId: string

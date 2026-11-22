@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from 'deepspace'
+import { useMine } from '../lib/use-mine'
 import { Button } from '@/components/ui'
 import { callAction } from '../lib/call-action'
 import { rankDrivers, type DriverLite } from '../matching/rank'
@@ -100,11 +101,12 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export function RequestsPanel() {
-  const requests = useQuery<RequestData>('requests')
-  const fares = useQuery<FareData>('fares')
+  // Your own work only; the fleet is shared.
+  const requests = useMine<RequestData>('requests')
+  const fares = useMine<FareData>('fares')
   const drivers = useQuery<DriverData>('drivers')
-  const offers = useQuery<OfferData>('offers')
-  const negotiations = useQuery<NegotiationData>('negotiations')
+  const offers = useMine<OfferData>('offers', 'dispatcherId')
+  const negotiations = useMine<NegotiationData>('negotiations')
 
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -155,8 +157,20 @@ export function RequestsPanel() {
         Pricing uses the AI model and is billed to your own DeepSpace credits (about a tenth of a cent each).
       </p>
       {requests.status === 'ready' && rows.length === 0 && (
-        <p className="mt-3 text-sm text-muted-foreground">No requests yet. Add one above.</p>
+        <div data-testid="no-requests" className="mt-3 rounded-lg border border-border bg-card p-4 text-sm">
+          <p className="text-muted-foreground">
+            You have no requests yet. Add one above, or start with the six demo requests (they are yours alone).
+          </p>
+          <Button
+            className="mt-3"
+            disabled={busy !== null}
+            onClick={() => run('_', 'demo-requests', {})}
+          >
+            {busy === '_:demo-requests' ? 'Adding…' : 'Add demo requests'}
+          </Button>
+        </div>
       )}
+      {errors['_'] && <p className="mt-2 text-sm text-red-400">{errors['_']}</p>}
 
       <ul className="mt-3 space-y-3">
         {rows.map((r) => {
@@ -280,7 +294,7 @@ export function RequestsPanel() {
 
                   {!proposed && (
                     <p className="mt-2 text-muted-foreground">
-                      This request has no customer price. Add a new request, or ask the owner to re-seed.
+                      This request has no customer price. Add a new request with the customer's price.
                     </p>
                   )}
 

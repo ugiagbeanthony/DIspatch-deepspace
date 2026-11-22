@@ -76,48 +76,66 @@ describe('offers: private per driver, enforced at the permission check', () => {
   })
 })
 
-describe('console data: dispatchers work it, drivers cannot see it', () => {
-  const consoleSchemas = [driversSchema, requestsSchema, faresSchema, fareHistorySchema]
+const OTHER_DISPATCHER = 'user_dispatcher_2'
 
-  it('a driver can read none of the console (no request queue, no fleet, no fares)', () => {
-    for (const s of consoleSchemas) {
-      expect(canRead(s, 'viewer', rec(), DRIVER_A)).toBe(false)
-    }
-  })
+describe('shared world: the fleet and fare history', () => {
+  const shared = [driversSchema, fareHistorySchema]
 
-  it('a dispatcher reads all of it', () => {
-    for (const s of consoleSchemas) {
-      expect(canRead(s, 'member', rec(), DISPATCHER)).toBe(true)
-    }
-  })
-
-  it('a dispatcher can add and update requests', () => {
-    expect(canCreate(requestsSchema, 'member')).toBe(true)
-    expect(canUpdate(requestsSchema, 'member', rec(), DISPATCHER)).toBe(true)
-  })
-
-  it('a dispatcher can adjust a fare but cannot invent one (the server creates it)', () => {
-    expect(canUpdate(faresSchema, 'member', rec(), DISPATCHER)).toBe(true)
-    expect(canCreate(faresSchema, 'member')).toBe(false)
-  })
-
-  it('a dispatcher cannot rewrite the fleet or the fare history', () => {
-    for (const s of [driversSchema, fareHistorySchema]) {
+  it('every dispatcher can read it, nobody but the owner can write it', () => {
+    for (const s of shared) {
+      expect(canRead(s, 'member', rec({}, OWNER), DISPATCHER)).toBe(true)
+      expect(canRead(s, 'member', rec({}, OWNER), OTHER_DISPATCHER)).toBe(true)
       expect(canCreate(s, 'member')).toBe(false)
-      expect(canUpdate(s, 'member', rec(), DISPATCHER)).toBe(false)
+      expect(canUpdate(s, 'member', rec({}, OWNER), DISPATCHER)).toBe(false)
+      expect(canCreate(s, 'admin')).toBe(true)
     }
   })
 
-  it('nobody signed out sees any of it', () => {
-    for (const s of consoleSchemas) {
+  it('a driver and a signed-out visitor cannot read it', () => {
+    for (const s of shared) {
+      expect(canRead(s, 'viewer', rec(), DRIVER_A)).toBe(false)
       expect(canRead(s, '*', rec(), 'anon')).toBe(false)
     }
   })
+})
 
-  it('the owner can write everything', () => {
-    for (const s of consoleSchemas) {
+describe('private workspace: requests, fares and negotiations belong to the dispatcher who made them', () => {
+  const personal = [requestsSchema, faresSchema, negotiationsSchema]
+  const mine = rec({}, DISPATCHER)
+
+  it('a dispatcher reads their own', () => {
+    for (const s of personal) expect(canRead(s, 'member', mine, DISPATCHER)).toBe(true)
+  })
+
+  it('another dispatcher cannot read them', () => {
+    for (const s of personal) expect(canRead(s, 'member', mine, OTHER_DISPATCHER)).toBe(false)
+  })
+
+  it('a dispatcher can add requests and update only their own', () => {
+    expect(canCreate(requestsSchema, 'member')).toBe(true)
+    expect(canUpdate(requestsSchema, 'member', mine, DISPATCHER)).toBe(true)
+    expect(canUpdate(requestsSchema, 'member', mine, OTHER_DISPATCHER)).toBe(false)
+  })
+
+  it('fares and negotiations are written only by the server', () => {
+    for (const s of [faresSchema, negotiationsSchema]) {
+      expect(canCreate(s, 'member')).toBe(false)
+      expect(canUpdate(s, 'member', mine, DISPATCHER)).toBe(false)
+    }
+  })
+
+  it('a driver and a signed-out visitor see none of it', () => {
+    for (const s of personal) {
+      expect(canRead(s, 'viewer', mine, DRIVER_A)).toBe(false)
+      expect(canRead(s, '*', mine, 'anon')).toBe(false)
+    }
+  })
+
+  it('the owner (admin) can read and write all of it', () => {
+    for (const s of personal) {
+      expect(canRead(s, 'admin', mine, OWNER)).toBe(true)
       expect(canCreate(s, 'admin')).toBe(true)
-      expect(canUpdate(s, 'admin', rec(), OWNER)).toBe(true)
+      expect(canUpdate(s, 'admin', mine, OWNER)).toBe(true)
     }
   })
 })

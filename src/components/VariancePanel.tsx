@@ -10,7 +10,7 @@
  */
 
 import { useState } from 'react'
-import { useQuery } from 'deepspace'
+import { useMine } from '../lib/use-mine'
 import { summarize, type FareRow } from '../dispatch/variance'
 import { usd } from '../dispatch/offers'
 
@@ -40,9 +40,10 @@ const stamp = (iso: string) => {
 }
 
 export function VariancePanel() {
-  const requests = useQuery<RequestData>('requests')
-  const fares = useQuery<FareData>('fares')
-  const negotiations = useQuery<NegotiationData>('negotiations')
+  // Your own agreements only.
+  const requests = useMine<RequestData>('requests')
+  const fares = useMine<FareData>('fares')
+  const negotiations = useMine<NegotiationData>('negotiations')
   const [showAll, setShowAll] = useState(false)
 
   const reqById = new Map(requests.records.map((r) => [r.recordId, r.data]))
@@ -99,8 +100,28 @@ export function VariancePanel() {
     </div>
   )
 
+  const canExpand = s.rows.length > RECENT
+  const toggle = () => canExpand && setShowAll((v) => !v)
+
   return (
-    <section data-testid="variance-panel" className="mt-8 rounded-lg border border-border bg-card p-4">
+    <section
+      data-testid="variance-panel"
+      // Click anywhere on the section to see more (or fewer). Links inside keep working.
+      role={canExpand ? 'button' : undefined}
+      tabIndex={canExpand ? 0 : undefined}
+      aria-expanded={canExpand ? showAll : undefined}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('a')) return
+        toggle()
+      }}
+      onKeyDown={(e) => {
+        if (canExpand && (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+          e.preventDefault()
+          toggle()
+        }
+      }}
+      className={`mt-8 rounded-lg border border-border bg-card p-4 ${canExpand ? 'cursor-pointer hover:bg-card/80' : ''}`}
+    >
       <h2 className="text-sm font-semibold">Agreement charts</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {s.meanAiVsProposedPct === null
@@ -134,15 +155,10 @@ export function VariancePanel() {
         ))}
       </ul>
 
-      {s.rows.length > RECENT && (
-        <button
-          data-testid="agreements-toggle"
-          aria-expanded={showAll}
-          onClick={() => setShowAll((v) => !v)}
-          className="mt-4 text-sm font-medium underline underline-offset-4 hover:text-foreground"
-        >
-          {showAll ? `Show only the latest ${RECENT}` : `Show all ${s.rows.length} agreements`}
-        </button>
+      {canExpand && (
+        <p data-testid="agreements-toggle" className="mt-4 text-sm font-medium underline underline-offset-4">
+          {showAll ? `Click to show only the latest ${RECENT}` : `Click to show all ${s.rows.length} agreements`}
+        </p>
       )}
 
       {s.modelBias.all && (

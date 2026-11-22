@@ -18,7 +18,7 @@
 
 import type { Job, JobContext } from 'deepspace/worker'
 import { createUserToolExecutor } from 'deepspace/worker'
-import { generateDrivers, generateHistory, generateRequests } from './seed/generate'
+import { generateDrivers, generateHistory } from './seed/generate'
 import type { Env } from '../worker'
 
 type JobEnv = Env
@@ -46,7 +46,7 @@ function assertOk(result: unknown, what: string): void {
 }
 
 /**
- * Seed the synthetic demo fleet, requests and 14-day fare history.
+ * Seed the synthetic shared demo fleet and 14-day fare history.
  *
  * Runs as the dispatcher, so every write is checked by the same RBAC as any
  * other dispatcher write. Idempotent: record ids are deterministic and
@@ -62,7 +62,6 @@ async function seedDemoData(job: Job, ctx: JobContext, env: JobEnv): Promise<unk
   const exec = createUserToolExecutor(env, actor, ctx.signal)
   const plan = [
     { collection: 'drivers', rows: generateDrivers() },
-    { collection: 'requests', rows: generateRequests() },
     { collection: 'fareHistory', rows: generateHistory() },
   ]
   const total = plan.reduce((n, p) => n + p.rows.length, 0)

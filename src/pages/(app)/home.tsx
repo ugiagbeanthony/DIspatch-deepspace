@@ -11,20 +11,24 @@ import { Link } from 'react-router-dom'
 import { AuthOverlay, useAuthProfileReady, useJobs, useQuery } from 'deepspace'
 import type { JobView } from 'deepspace'
 import { Button } from '@/components/ui'
+import { useMine } from '@/lib/use-mine'
 import { AddRequestForm } from '@/components/AddRequestForm'
 import { RequestsPanel } from '@/components/RequestsPanel'
 import { VariancePanel } from '@/components/VariancePanel'
 import { SCOPE_ID } from '../../constants'
 
+/** `mine`: your own rows (requests, fares). The fleet and history are shared. */
 const COLLECTIONS = [
-  { name: 'requests', label: 'Requests' },
-  { name: 'drivers', label: 'Drivers' },
-  { name: 'fares', label: 'Fares' },
-  { name: 'fareHistory', label: 'Fare history' },
+  { name: 'requests', label: 'Your requests', mine: true },
+  { name: 'drivers', label: 'Drivers (shared)', mine: false },
+  { name: 'fares', label: 'Your fares', mine: true },
+  { name: 'fareHistory', label: 'Fare history (shared)', mine: false },
 ] as const
 
-function Count({ collection, label }: { collection: string; label: string }) {
-  const { records, status } = useQuery(collection)
+function Count({ collection, label, mine }: { collection: string; label: string; mine: boolean }) {
+  const all = useQuery(collection)
+  const own = useMine(collection)
+  const { records, status } = mine ? own : all
   const synthetic = records.filter((r) => (r.data as { synthetic?: number }).synthetic === 1).length
   return (
     <div data-testid={`count-${collection}`} className="rounded-lg border border-border bg-card p-4">
@@ -62,7 +66,7 @@ function SeedPanel({
     <section data-testid="seed-panel" className="mt-8 rounded-lg border border-border bg-card p-4">
       <h2 className="text-sm font-semibold">Demo data (owner)</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Seeds 20 drivers, 6 requests and 14 days of fare history, all labelled synthetic. Safe to run again: it
+        Seeds the shared fleet (20 drivers) and 14 days of fare history, all labelled synthetic. Each dispatcher adds their own demo requests. Safe to run again: it
         overwrites the same rows instead of adding more.
       </p>
       <div className="mt-3 flex items-center gap-3">
@@ -137,7 +141,7 @@ export default function HomePage() {
 
       <dl className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {COLLECTIONS.map((c) => (
-          <Count key={c.name} collection={c.name} label={c.label} />
+          <Count key={c.name} collection={c.name} label={c.label} mine={c.mine} />
         ))}
       </dl>
 
@@ -147,7 +151,7 @@ export default function HomePage() {
       {isOwner && <OwnerTools />}
 
       <p className="mt-8 text-sm text-muted-foreground">
-        The fleet, the seeded requests and the fare history are demo data labelled synthetic. Drivers are simulated;
+        The fleet, the demo requests and the fare history are demo data labelled synthetic. Drivers are simulated;
         the permissions, pricing checks and job flow are real.
       </p>
     </div>
